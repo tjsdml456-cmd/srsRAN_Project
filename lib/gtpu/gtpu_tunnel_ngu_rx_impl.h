@@ -231,6 +231,92 @@ protected:
 
   void deliver_sdu(gtpu_rx_sdu_info& sdu_info)
   {
+    // Extract DSCP for logging and future scheduler use (don't change QFI to avoid SDAP errors)
+    if (sdu_info.sdu.length() >= 2) {
+      auto it = sdu_info.sdu.begin();
+      uint8_t first_byte = *it;
+      uint8_t version = (first_byte >> 4) & 0x0F;
+      
+      if (version == 4) {  // IPv4
+        ++it;
+        uint8_t tos = *it;
+        uint8_t dscp = tos >> 2;
+        
+        // Detailed DSCP classification (RFC 4594) - QFI not changed to avoid SDAP errors
+        const char* traffic_class = "Unknown";
+        const char* dscp_name = "";
+        
+        // Voice traffic
+        if (dscp == 46) {
+          traffic_class = "Voice"; dscp_name = "EF";
+        } else if (dscp == 44) {
+          traffic_class = "Voice Admit"; dscp_name = "VA";
+        }
+        // Video traffic (Conversational)
+        else if (dscp == 34) {
+          traffic_class = "Video Conversational"; dscp_name = "AF41";
+        } else if (dscp == 36) {
+          traffic_class = "Video Conversational"; dscp_name = "AF42";
+        } else if (dscp == 38) {
+          traffic_class = "Video Conversational"; dscp_name = "AF43";
+        }
+        // Gaming traffic
+        else if (dscp == 32) {
+          traffic_class = "Real-time Gaming"; dscp_name = "CS4";
+        } else if (dscp == 26) {
+          traffic_class = "Gaming"; dscp_name = "AF31";
+        } else if (dscp == 28) {
+          traffic_class = "Gaming"; dscp_name = "AF32";
+        } else if (dscp == 30) {
+          traffic_class = "Gaming"; dscp_name = "AF33";
+        }
+        // Signaling traffic
+        else if (dscp == 40) {
+          traffic_class = "Signaling"; dscp_name = "CS5";
+        } else if (dscp == 48) {
+          traffic_class = "Network Control"; dscp_name = "CS6";
+        } else if (dscp == 56) {
+          traffic_class = "Network Control"; dscp_name = "CS7";
+        }
+        // Streaming traffic
+        else if (dscp == 18) {
+          traffic_class = "Video Streaming"; dscp_name = "AF21";
+        } else if (dscp == 20) {
+          traffic_class = "Video Streaming"; dscp_name = "AF22";
+        } else if (dscp == 22) {
+          traffic_class = "Video Streaming"; dscp_name = "AF23";
+        }
+        // Broadcast/Multicast
+        else if (dscp == 24) {
+          traffic_class = "Broadcast Video"; dscp_name = "CS3";
+        }
+        // Premium data
+        else if (dscp == 16) {
+          traffic_class = "OAM"; dscp_name = "CS2";
+        } else if (dscp == 10) {
+          traffic_class = "High Priority Data"; dscp_name = "AF11";
+        } else if (dscp == 12) {
+          traffic_class = "High Priority Data"; dscp_name = "AF12";
+        } else if (dscp == 14) {
+          traffic_class = "High Priority Data"; dscp_name = "AF13";
+        }
+        // Best Effort
+        else if (dscp == 0) {
+          traffic_class = "Best Effort"; dscp_name = "Default";
+        } else if (dscp == 8) {
+          traffic_class = "Scavenger"; dscp_name = "CS1";
+        }
+        // Other values
+        else {
+          traffic_class = "Other";
+          dscp_name = "";
+        }
+        
+        logger.log_info("DSCP={} {} ({}) detected, QFI={} (unchanged)",
+                        dscp, dscp_name, traffic_class, sdu_info.qos_flow_id);
+      }
+    }
+        
     logger.log_info(sdu_info.sdu.begin(),
                     sdu_info.sdu.end(),
                     "RX SDU. sdu_len={} qos_flow={} sn={}",

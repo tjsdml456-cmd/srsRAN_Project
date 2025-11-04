@@ -35,7 +35,7 @@ target_link_libraries(gnb_base PRIVATE
         e2ap_asn1
         srsran_gateway
         srsran_pcap
-        srsran_support
+	srsran_support
         srsran_versioning
         srsran_f1c_gateway
         srsran_e1_gateway

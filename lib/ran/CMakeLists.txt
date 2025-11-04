@@ -51,7 +51,8 @@ add_library(srsran_ran
         pusch/pusch_tpmi_select.cpp
         pusch/pusch_uci_beta_offset.cpp
         pusch/ulsch_info.cpp
-        qos/five_qi_qos_mapping.cpp
+        qos/dscp_qos_mapping.cpp        
+	qos/five_qi_qos_mapping.cpp
         uci/uci_part2_size_calculator.cpp
         band_helper.cpp
         sch/tbs_calculator.cpp

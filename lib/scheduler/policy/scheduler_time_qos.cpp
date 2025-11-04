@@ -165,8 +165,18 @@ static double compute_dl_qos_weights(const slice_ue&                         u,
 
       // Track the LC with the lowest combined priority (combining QoS and ARP priority levels).
       if (policy_params.priority_enabled) {
-        min_combined_prio = std::min(
-            static_cast<uint16_t>(lc->qos->qos.priority.value() * lc->qos->arp_priority.value()), min_combined_prio);
+        uint16_t lc_combined_prio = lc->qos->qos.priority.value() * lc->qos->arp_priority.value();
+        
+        // Log QoS priority details for each logical channel
+        static auto& logger = srslog::fetch_basic_logger("SCHED");
+        logger.debug("DL LC QoS: ue={} qos_prio={} arp_prio={} combined_prio={} pending_bytes={}",        
+                     u.ue_index(),
+                     lc->qos->qos.priority.value(),
+                     lc->qos->arp_priority.value(),
+                     lc_combined_prio,
+                     u.pending_dl_newtx_bytes(lc->lcid));
+        
+        min_combined_prio = std::min(lc_combined_prio, min_combined_prio);      
       }
 
       slot_point hol_toa = u.dl_hol_toa(lc->lcid);
@@ -201,8 +211,33 @@ static double compute_dl_qos_weights(const slice_ue&                         u,
                                                             static_cast<double>(max_combined_prio_level + 1)
                                                       : 1.0;
 
+  // Log QoS-based priority calculation for debugging
+  static auto& logger = srslog::fetch_basic_logger("SCHED");
+  if (policy_params.priority_enabled and min_combined_prio != max_combined_prio_level) {
+    logger.debug("DL QoS weight calculation: ue={} combined_prio={} prio_weight={:.3f} gbr_weight={:.3f} "
+                 "pf_weight={:.3f} delay_weight={:.3f}",
+                 u.ue_index(),
+                 min_combined_prio,
+                 prio_weight,
+                 gbr_weight,
+                 pf_weight,
+                 delay_weight);
+  }
+  
   // The return is a combination of ARP and QoS priorities, GBR and PF weight functions.
-  return combine_qos_metrics(pf_weight, gbr_weight, prio_weight, delay_weight, policy_params);
+  double final_weight = combine_qos_metrics(pf_weight, gbr_weight, prio_weight, delay_weight, policy_params);
+  
+  if (policy_params.priority_enabled and min_combined_prio != max_combined_prio_level) {
+    logger.info("DL resource priority: ue={} final_weight={:.6e} [prio={:.3f} × gbr={:.3f} × pf={:.3f} × delay={:.3f}]",
+                u.ue_index(),
+                final_weight,
+                prio_weight,
+                gbr_weight,
+                pf_weight,
+                delay_weight);
+  }
+  
+  return final_weight;
 }
 
 /// \brief Computes UL weights used in computation of UL priority value for a UE in a slot.
@@ -229,8 +264,19 @@ static double compute_ul_qos_weights(const slice_ue&                         u,
 
       // Track the LC with the lowest combined priority (combining QoS and ARP priority levels).
       if (policy_params.priority_enabled) {
-        min_combined_prio = std::min(
-            static_cast<uint16_t>(lc->qos->qos.priority.value() * lc->qos->arp_priority.value()), min_combined_prio);
+
+        uint16_t lc_combined_prio = lc->qos->qos.priority.value() * lc->qos->arp_priority.value();
+        
+        // Log QoS priority details for each logical channel
+        static auto& logger = srslog::fetch_basic_logger("SCHED");
+        logger.debug("UL LC QoS: ue={} qos_prio={} arp_prio={} combined_prio={} pending_bytes={}",        
+                     u.ue_index(),
+                     lc->qos->qos.priority.value(),
+                     lc->qos->arp_priority.value(),
+                     lc_combined_prio,
+                     u.pending_ul_unacked_bytes(lc->lc_group));
+        
+        min_combined_prio = std::min(lc_combined_prio, min_combined_prio);      
       }
 
       if (not lc->qos->gbr_qos_info.has_value()) {
@@ -257,7 +303,29 @@ static double compute_ul_qos_weights(const slice_ue&                         u,
                                                       : 1.0;
   double pf_weight   = compute_pf_metric(estim_ul_rate, avg_ul_rate, policy_params.pf_fairness_coeff);
 
-  return combine_qos_metrics(pf_weight, gbr_weight, prio_weight, 1.0, policy_params);
+  // Log QoS-based priority calculation for debugging
+  static auto& logger = srslog::fetch_basic_logger("SCHED");
+  if (policy_params.priority_enabled and min_combined_prio != max_combined_prio_level) {
+    logger.debug("UL QoS weight calculation: ue={} combined_prio={} prio_weight={:.3f} gbr_weight={:.3f} pf_weight={:.3f}",
+                 u.ue_index(),
+                 min_combined_prio,
+                 prio_weight,
+                 gbr_weight,
+                 pf_weight);
+  }
+
+  double final_weight = combine_qos_metrics(pf_weight, gbr_weight, prio_weight, 1.0, policy_params);
+  
+  if (policy_params.priority_enabled and min_combined_prio != max_combined_prio_level) {
+    logger.info("UL resource priority: ue={} final_weight={:.6e} [prio={:.3f} × gbr={:.3f} × pf={:.3f}]",
+                u.ue_index(),
+                final_weight,
+                prio_weight,
+                gbr_weight,
+                pf_weight);
+  }
+  
+  return final_weight;
 }
 
 scheduler_time_qos::ue_ctxt::ue_ctxt(du_ue_index_t             ue_index_,

@@ -55,9 +55,16 @@ public:
   {
     auto tx_it = tx_map.find(qos_flow_id);
     if (tx_it == tx_map.end()) {
-      logger.log_warning("No mapping for SDU with {}", qos_flow_id);
+      logger.log_warning("No mapping for SDU with {} sdu_len={}", qos_flow_id, sdu.length());      
       return;
     }
+    
+    drb_id_t drb_id = tx_it->second->get_drb_id();
+    logger.log_debug("SDAP DL: QFI={} → DRB={} sdu_len={}", 
+                     qos_flow_id, 
+                     drb_id, 
+                     sdu.length());
+        
     tx_it->second->handle_sdu(std::move(sdu));
   }
 

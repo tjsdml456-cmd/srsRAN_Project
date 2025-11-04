@@ -39,7 +39,7 @@ target_link_libraries(srscu PRIVATE
         srsran_o_cu_cp_app_unit
         srsran_o_cu_up_app_unit
         srsran_pcap
-        srsran_support
+	srsran_support
         srsran_versioning
         ngap_asn1
 )
