@@ -35,6 +35,11 @@ using namespace srsran;
 /// ensures that the UE DL buffer occupancy is updated only once per bearer per slot for efficiency reasons.
 class ue_cell_event_manager::ue_dl_buffer_occupancy_manager final : public scheduler_dl_buffer_state_indication_handler
 {
+  struct dl_bo_entry {
+    std::atomic<int> bs;
+    std::atomic<int> hol_toa;
+    std::atomic<int> hol_dscp;
+  }; 
   using bearer_key                        = uint32_t;
   static constexpr size_t NOF_BEARER_KEYS = MAX_NOF_DU_UES * MAX_NOF_RB_LCIDS;
 
@@ -45,16 +50,23 @@ class ue_cell_event_manager::ue_dl_buffer_occupancy_manager final : public sched
 public:
   ue_dl_buffer_occupancy_manager(ue_cell_event_manager& parent_) : parent(parent_), pending_evs(NOF_BEARER_KEYS)
   {
-    std::fill(ue_dl_bo_table.begin(), ue_dl_bo_table.end(), std::make_pair(-1, 0));
+    for (auto& entry : ue_dl_bo_table) {
+      entry.bs.store(-1, std::memory_order_relaxed);
+      entry.hol_toa.store(0, std::memory_order_relaxed);
+      entry.hol_dscp.store(-1, std::memory_order_relaxed);
+    }  
   }
 
   void handle_dl_buffer_state_indication(const dl_buffer_state_indication_message& rlc_dl_bo) override
   {
     // Update DL Buffer Occupancy for the given UE and bearer.
-    unsigned key          = get_bearer_key(rlc_dl_bo.ue_index, rlc_dl_bo.lcid);
-    bool     first_rlc_bo = ue_dl_bo_table[key].first.exchange(rlc_dl_bo.bs, std::memory_order_acquire) < 0;
-    ue_dl_bo_table[key].second.store(rlc_dl_bo.hol_toa.valid() ? rlc_dl_bo.hol_toa.count_val : -1,
-                                     std::memory_order_relaxed);
+    unsigned    key   = get_bearer_key(rlc_dl_bo.ue_index, rlc_dl_bo.lcid);
+    dl_bo_entry& entry = ue_dl_bo_table[key];
+
+    bool first_rlc_bo = entry.bs.exchange(rlc_dl_bo.bs, std::memory_order_acquire) < 0;
+    entry.hol_toa.store(rlc_dl_bo.hol_toa.valid() ? rlc_dl_bo.hol_toa.count_val : -1, std::memory_order_relaxed);
+    entry.hol_dscp.store(rlc_dl_bo.hol_dscp.has_value() ? static_cast<int>(rlc_dl_bo.hol_dscp->to_uint()) : -1,
+                         std::memory_order_relaxed);
 
     if (not first_rlc_bo) {
       // If another DL BO update has been received before for this same bearer, we do not need to enqueue a new event.
@@ -77,15 +89,16 @@ public:
       // Recreate latest DL BO update.
       dl_buffer_state_indication_message dl_bo;
       // > Extract UE index and LCID.
-      dl_bo.ue_index = get_ue_index(key);
-      dl_bo.lcid     = get_lcid(key);
-      int hol_toa    = ue_dl_bo_table[key].second.load(std::memory_order_relaxed);
+      dl_bo_entry& entry = ue_dl_bo_table[key];
+      dl_bo.ue_index     = get_ue_index(key);
+      dl_bo.lcid         = get_lcid(key);
+      int hol_toa        = entry.hol_toa.load(std::memory_order_relaxed);     
       if (hol_toa >= 0) {
         dl_bo.hol_toa = std::min(sl, slot_point{sl.numerology(), (unsigned)hol_toa});
       }
       // > Extract last DL BO value for the respective bearer and reset BO table position.
-      dl_bo.bs = ue_dl_bo_table[key].first.exchange(-1, std::memory_order_release);
-      if (dl_bo.bs < 0) {
+      dl_bo.bs = entry.bs.exchange(-1, std::memory_order_release);
+       if (dl_bo.bs < 0) {
         parent.logger.warning("ue={} lcid={}: Invalid DL buffer occupancy value: {}",
                               fmt::underlying(dl_bo.ue_index),
                               fmt::underlying(dl_bo.lcid),
@@ -93,6 +106,11 @@ public:
         continue;
       }
 
+      int stored_dscp = entry.hol_dscp.exchange(-1, std::memory_order_relaxed);
+      if (stored_dscp >= 0) {
+        dl_bo.hol_dscp = dscp_value_t(static_cast<uint8_t>(stored_dscp));
+      }
+     
       // Retrieve UE.
       if (not parent.ue_db.contains(dl_bo.ue_index)) {
         parent.logger.warning("ue={}: Discarding DL buffer occupancy update. Cause: UE not recognized",
@@ -124,7 +142,7 @@ private:
 
   // Table of pending DL Buffer Occupancy values and HOL TOAs. DL Buffer Occupancy=-1 means that it is not set. HOL
   // ToA of 0 means it is not set.
-  std::array<std::pair<std::atomic<int>, std::atomic<int>>, NOF_BEARER_KEYS> ue_dl_bo_table;
+  std::array<dl_bo_entry, NOF_BEARER_KEYS> ue_dl_bo_table;
 
   // Queue of {UE Id, LCID} pairs with pending DL Buffer Occupancy updates.
   ue_event_queue pending_evs;

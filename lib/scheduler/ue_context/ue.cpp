@@ -169,6 +169,7 @@ void ue::handle_dl_buffer_state_indication(lcid_t                     lcid,
                                            slot_point                 hol_toa,
                                            std::optional<dscp_value_t> hol_dscp)
 {
+  static auto& sched_logger = srslog::fetch_basic_logger("SCHED");
   unsigned pending_bytes = bs;
 
   // Subtract bytes pending for this LCID in scheduled DL HARQ allocations (but not yet sent to the lower layers)
@@ -202,6 +203,12 @@ void ue::handle_dl_buffer_state_indication(lcid_t                     lcid,
     }
   }
 
+  sched_logger.debug("UE DL BS indication: ue={} lcid={} pending={} hol_dscp={}",
+                     ue_index,
+                     static_cast<unsigned>(lcid),
+                     pending_bytes,
+                     hol_dscp.has_value() ? static_cast<int>(hol_dscp->to_uint()) : -1);
+ 
   dl_lc_ch_mgr.handle_dl_buffer_status_indication(lcid, pending_bytes, hol_toa, hol_dscp);  
 }
 
