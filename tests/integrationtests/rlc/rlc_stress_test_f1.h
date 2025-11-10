@@ -43,10 +43,10 @@ public:
   f1ap_dummy(uint32_t id) : logger("F1AP", {gnb_du_id_t::min, id, srb_id_t::srb1, "DL"}) {}
 
   // PDCP -> F1 -> RLC
-  void on_new_pdu(byte_buffer pdu, bool is_retx) final
+  void on_new_pdu(byte_buffer pdu, bool is_retx, std::optional<dscp_value_t> dscp) final  
   {
     logger.log_info("Passing F1AP PDU to RLC");
-    rlc_tx_upper->handle_sdu(std::move(pdu), is_retx);
+    rlc_tx_upper->handle_sdu(std::move(pdu), is_retx, dscp);    
   }
 
   // PDCP -> F1AP -> RLC

@@ -25,6 +25,7 @@
 #include "srsran/support/executors/task_worker.h"
 #include "srsran/support/executors/task_worker_pool.h"
 #include <getopt.h>
+#include <optional>
 
 using namespace srsran;
 
@@ -47,7 +48,7 @@ public:
   void on_protocol_failure() final { num_protocol_failures++; }
 
   /// PDCP TX lower layer data notifier
-  void on_new_pdu(byte_buffer pdu, bool is_retx) final { num_pdus++; }
+  void on_new_pdu(byte_buffer pdu, bool is_retx, std::optional<dscp_value_t>) final { num_pdus++; }  
   void on_discard_pdu(uint32_t pdcp_sn) final { num_discards++; }
 };
 
@@ -228,7 +229,7 @@ static void benchmark_pdcp_tx(bench_params                  params,
   // Run benchmark.
   auto measure = [&pdcp_tx, &sdu_list, &dl_worker, &crypto_worker_pool, &dl_exec]() mutable {
     for (auto& sdu : sdu_list) {
-      if (!dl_exec.execute([&pdcp_tx, s = std::move(sdu)]() mutable { pdcp_tx->handle_sdu(std::move(s)); })) {
+      if (!dl_exec.execute([&pdcp_tx, s = std::move(sdu)]() mutable { pdcp_tx->handle_sdu(std::move(s), std::nullopt); })) {
         srslog::fetch_basic_logger("PDCP").error("Failed execute handle_sdu in DL executor");
       }
     }
@@ -318,3 +319,4 @@ int main(int argc, char** argv)
   }
   srslog::flush();
 }
+

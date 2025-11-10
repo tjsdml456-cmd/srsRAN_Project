@@ -27,6 +27,7 @@
 #include "srsran/support/executors/task_worker.h"
 #include "srsran/support/executors/task_worker_pool.h"
 #include <getopt.h>
+#include <optional>
 
 using namespace srsran;
 
@@ -46,7 +47,7 @@ public:
   void on_protocol_failure() final {}
 
   /// PDCP TX lower layer data notifier
-  void on_new_pdu(byte_buffer pdu, bool is_retx) final
+  void on_new_pdu(byte_buffer pdu, bool is_retx, std::optional<dscp_value_t>) final  
   {
     pdu_list.push_back(byte_buffer_chain::create(std::move(pdu)).value());
   }
@@ -211,7 +212,7 @@ static std::vector<byte_buffer_chain> gen_pdu_list(bench_params                 
     for (uint32_t j = 0; j < params.sdu_len; ++j) {
       report_error_if_not(sdu_buf.append(rand()), "Failed to allocate SDU");
     }
-    pdcp_tx->handle_sdu(std::move(sdu_buf));
+    pdcp_tx->handle_sdu(std::move(sdu_buf), std::nullopt);    
   }
   return std::move(frame.pdu_list);
 }

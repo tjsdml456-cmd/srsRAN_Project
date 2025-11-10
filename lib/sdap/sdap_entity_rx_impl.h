@@ -41,7 +41,7 @@ public:
   {
   }
 
-  void handle_pdu(byte_buffer pdu) final
+  void handle_pdu(byte_buffer pdu, std::optional<dscp_value_t>) final  
   {
     // pass through with qfi
     logger.log_debug("RX SDU. {} sdu_len={}", qfi, pdu.length());

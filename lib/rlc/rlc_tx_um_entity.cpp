@@ -72,14 +72,19 @@ rlc_tx_um_entity::rlc_tx_um_entity(gnb_du_id_t                          du_id,
 }
 
 // TS 38.322 v16.2.0 Sec. 5.2.2.1
-void rlc_tx_um_entity::handle_sdu(byte_buffer sdu_buf, bool is_retx)
+void rlc_tx_um_entity::handle_sdu(byte_buffer sdu_buf, bool is_retx, std::optional<dscp_value_t> dscp)
 {
   rlc_sdu sdu_;
   sdu_.time_of_arrival = std::chrono::steady_clock::now();
 
   sdu_.buf     = std::move(sdu_buf);
   sdu_.pdcp_sn = get_pdcp_sn(sdu_.buf, cfg.pdcp_sn_len, /* is_srb = */ false, logger.get_basic_logger());
-
+  sdu_.dscp    = dscp;
+  logger.log_debug(sdu_.buf.begin(),
+                   sdu_.buf.end(),
+                   "Received SDU for RLC UM. sdu_len={} dscp={}",
+                   sdu_.buf.length(),
+                   dscp.has_value() ? dscp->to_uint() : -1);
   // Sanity check for PDCP ReTx in RLC UM
   if (SRSRAN_UNLIKELY(is_retx)) {
     logger.log_error("Ignored unexpected PDCP retransmission flag in RLC UM SDU");
@@ -336,10 +341,12 @@ rlc_buffer_state rlc_tx_um_entity::get_buffer_state()
   if (not sdu.buf.empty()) {
     segment_bytes = (sdu.buf.length() - next_so) + head_len_not_first;
     bs.hol_toa    = sdu.time_of_arrival;
+    bs.hol_dscp   = sdu.dscp;
   } else {
     const rlc_sdu* next_sdu = sdu_queue.front();
     if (next_sdu != nullptr) {
-      bs.hol_toa = next_sdu->time_of_arrival;
+      bs.hol_toa  = next_sdu->time_of_arrival;
+      bs.hol_dscp = next_sdu->dscp;
     }
   }
 
@@ -349,3 +356,4 @@ rlc_buffer_state rlc_tx_um_entity::get_buffer_state()
   }
   return bs;
 }
+

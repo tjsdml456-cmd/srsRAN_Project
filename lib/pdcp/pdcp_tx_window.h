@@ -24,10 +24,12 @@
 
 #include "pdcp_bearer_logger.h"
 #include "srsran/adt/byte_buffer.h"
+#include "srsran/ran/qos/dscp_qos_mapping.h"
 #include "srsran/pdcp/pdcp_config.h"
 #include "srsran/pdcp/pdcp_sn_size.h"
 #include "srsran/security/security.h"
 #include "srsran/support/sdu_window.h"
+#include <optional>
 
 namespace srsran {
 
@@ -38,6 +40,8 @@ struct pdcp_tx_window_sdu_info {
   byte_buffer sdu;
   /// The count value of the SDU/PDU
   uint32_t count;
+  /// Optional DSCP marking associated with the SDU.
+  std::optional<dscp_value_t> dscp;  
   /// Time of arrival at the PDCP entity
   std::chrono::system_clock::time_point time_of_arrival;
   /// Tick point of arrival at the PDCP entity (only set if discard timer is configured with for finite duration)

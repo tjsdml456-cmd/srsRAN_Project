@@ -164,7 +164,10 @@ void ue::set_config(const ue_configuration& new_cfg, std::optional<slot_point> m
   }
 }
 
-void ue::handle_dl_buffer_state_indication(lcid_t lcid, unsigned bs, slot_point hol_toa)
+void ue::handle_dl_buffer_state_indication(lcid_t                     lcid,
+                                           unsigned                   bs,
+                                           slot_point                 hol_toa,
+                                           std::optional<dscp_value_t> hol_dscp)
 {
   unsigned pending_bytes = bs;
 
@@ -199,7 +202,7 @@ void ue::handle_dl_buffer_state_indication(lcid_t lcid, unsigned bs, slot_point 
     }
   }
 
-  dl_lc_ch_mgr.handle_dl_buffer_status_indication(lcid, pending_bytes, hol_toa);
+  dl_lc_ch_mgr.handle_dl_buffer_status_indication(lcid, pending_bytes, hol_toa, hol_dscp);  
 }
 
 unsigned ue::pending_ul_newtx_bytes() const

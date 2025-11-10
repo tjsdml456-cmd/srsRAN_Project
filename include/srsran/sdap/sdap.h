@@ -24,8 +24,10 @@
 
 #include "srsran/adt/byte_buffer.h"
 #include "srsran/ran/cu_types.h"
+#include "srsran/ran/qos/dscp_qos_mapping.h"
 #include "srsran/ran/rb_id.h"
 #include "srsran/sdap/sdap_config.h"
+#include <optional>
 
 namespace srsran {
 
@@ -42,7 +44,7 @@ public:
   virtual ~sdap_rx_pdu_handler() = default;
 
   /// Handle the incoming PDU.
-  virtual void handle_pdu(byte_buffer pdu) = 0;
+  virtual void handle_pdu(byte_buffer pdu, std::optional<dscp_value_t> dscp) = 0;
 };
 
 /// This interface notifies to upper layers the reception of new SDUs in the receiving side of a SDAP entity.
@@ -62,7 +64,7 @@ public:
   virtual ~sdap_tx_pdu_notifier() = default;
 
   /// This callback is invoked on each generated PDU.
-  virtual void on_new_pdu(byte_buffer pdu) = 0;
+  virtual void on_new_pdu(byte_buffer pdu, std::optional<dscp_value_t> dscp) = 0;
 };
 
 /// This interface represents the entry point of the transmitting side of a SDAP entity.
@@ -72,7 +74,7 @@ public:
   virtual ~sdap_tx_sdu_handler() = default;
 
   /// Handle the incoming SDU.
-  virtual void handle_sdu(byte_buffer sdu, qos_flow_id_t qos_flow_id) = 0;
+  virtual void handle_sdu(byte_buffer sdu, qos_flow_id_t qos_flow_id, std::optional<dscp_value_t> dscp) = 0;
 };
 
 /// Interface for the SDAP entity.
@@ -95,3 +97,4 @@ public:
 } // namespace srs_cu_up
 
 } // namespace srsran
+

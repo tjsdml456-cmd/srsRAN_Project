@@ -25,6 +25,7 @@
 #include "srsran/pdcp/pdcp_config.h"
 #include "srsran/support/test_utils.h"
 #include <gtest/gtest.h>
+#include <optional>
 
 using namespace srsran;
 
@@ -153,8 +154,8 @@ TEST_P(pdcp_tx_metrics_test, sdu_pdu)
 
     // Write SDU
     byte_buffer sdu = byte_buffer::create(sdu1).value();
-    pdcp_tx->handle_sdu(std::move(sdu));
-
+    pdcp_tx->handle_sdu(std::move(sdu), std::nullopt);
+    
     // Wait for crypto and reordering
     wait_pending_crypto();
     worker.run_pending_tasks();

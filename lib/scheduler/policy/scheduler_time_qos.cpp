@@ -147,10 +147,32 @@ static double compute_dl_qos_weights(const slice_ue&                         u,
                                      slot_point                              slot_tx,
                                      const time_qos_scheduler_expert_config& policy_params)
 {
+  static auto& sched_logger = srslog::fetch_basic_logger("SCHED");
+  sched_logger.info("ue={} entered compute_dl_qos_weights avg_dl_rate={:.3f}", u.ue_index(), avg_dl_rate);  
+  std::optional<dscp_value_t> max_dscp = u.max_dl_dscp();  
+  if (max_dscp.has_value()) {
+    sched_logger.debug("DL DSCP candidate: ue={} dscp={} avg_dl_rate={:.3f}",
+                       u.ue_index(),
+                       max_dscp->to_uint(),
+                       avg_dl_rate);
+    if (max_dscp->to_uint() == 0) {
+      sched_logger.debug("DL DSCP candidate with zero marking: ue={} pending_bytes={}",
+                         u.ue_index(),
+                         u.pending_dl_newtx_bytes());
+    }  
+  }
+  
   if (avg_dl_rate == 0) {
+    if (max_dscp.has_value()) {
+      double prio_weight = static_cast<double>(max_dscp->to_uint() + 1U);
+      sched_logger.debug(
+          "DL DSCP override: ue={} dscp={} prio_weight={:.3f}", u.ue_index(), max_dscp->to_uint(), prio_weight);
+      return prio_weight;
+    }  
     // Highest priority to UEs that have not yet received any allocation.
     return std::numeric_limits<double>::max();
   }
+
 
   static constexpr uint16_t max_combined_prio_level = qos_prio_level_t::max() * arp_prio_level_t::max();
   uint16_t                  min_combined_prio       = max_combined_prio_level;
@@ -168,13 +190,12 @@ static double compute_dl_qos_weights(const slice_ue&                         u,
         uint16_t lc_combined_prio = lc->qos->qos.priority.value() * lc->qos->arp_priority.value();
         
         // Log QoS priority details for each logical channel
-        static auto& logger = srslog::fetch_basic_logger("SCHED");
-        logger.debug("DL LC QoS: ue={} qos_prio={} arp_prio={} combined_prio={} pending_bytes={}",        
-                     u.ue_index(),
-                     lc->qos->qos.priority.value(),
-                     lc->qos->arp_priority.value(),
-                     lc_combined_prio,
-                     u.pending_dl_newtx_bytes(lc->lcid));
+        sched_logger.debug("DL LC QoS: ue={} qos_prio={} arp_prio={} combined_prio={} pending_bytes={}",
+                           u.ue_index(),
+                           lc->qos->qos.priority.value(),
+                           lc->qos->arp_priority.value(),
+                           lc_combined_prio,
+                           u.pending_dl_newtx_bytes(lc->lcid));
         
         min_combined_prio = std::min(lc_combined_prio, min_combined_prio);      
       }
@@ -198,6 +219,7 @@ static double compute_dl_qos_weights(const slice_ue&                         u,
       } else {
         gbr_weight += max_metric_weight;
       }
+    
     }
   }
 
@@ -207,34 +229,42 @@ static double compute_dl_qos_weights(const slice_ue&                         u,
 
   double pf_weight = compute_pf_metric(estim_dl_rate, avg_dl_rate, policy_params.pf_fairness_coeff);
   // If priority is disabled, set the priority weight of all UEs to 1.0.
-  double prio_weight = policy_params.priority_enabled ? (max_combined_prio_level + 1 - min_combined_prio) /
-                                                            static_cast<double>(max_combined_prio_level + 1)
-                                                      : 1.0;
+  double default_prio_weight = policy_params.priority_enabled
+                                   ? (max_combined_prio_level + 1 - min_combined_prio) /
+                                         static_cast<double>(max_combined_prio_level + 1)
+                                   : 1.0;
+
+  double prio_weight = default_prio_weight;
+  if (max_dscp.has_value()) {
+    prio_weight = static_cast<double>(max_dscp->to_uint() + 1U);
+    sched_logger.debug(
+        "DL DSCP override: ue={} dscp={} prio_weight={:.3f}", u.ue_index(), max_dscp->to_uint(), prio_weight);  
+  }
 
   // Log QoS-based priority calculation for debugging
-  static auto& logger = srslog::fetch_basic_logger("SCHED");
   if (policy_params.priority_enabled and min_combined_prio != max_combined_prio_level) {
-    logger.debug("DL QoS weight calculation: ue={} combined_prio={} prio_weight={:.3f} gbr_weight={:.3f} "
-                 "pf_weight={:.3f} delay_weight={:.3f}",
-                 u.ue_index(),
-                 min_combined_prio,
-                 prio_weight,
-                 gbr_weight,
-                 pf_weight,
-                 delay_weight);
+    sched_logger.debug("DL QoS weight calculation: ue={} combined_prio={} prio_weight={:.3f} gbr_weight={:.3f} "
+                       "pf_weight={:.3f} delay_weight={:.3f}",
+                       u.ue_index(),
+                       min_combined_prio,
+                       prio_weight,
+                       gbr_weight,
+                       pf_weight,
+                       delay_weight);
   }
   
   // The return is a combination of ARP and QoS priorities, GBR and PF weight functions.
   double final_weight = combine_qos_metrics(pf_weight, gbr_weight, prio_weight, delay_weight, policy_params);
   
   if (policy_params.priority_enabled and min_combined_prio != max_combined_prio_level) {
-    logger.info("DL resource priority: ue={} final_weight={:.6e} [prio={:.3f} × gbr={:.3f} × pf={:.3f} × delay={:.3f}]",
-                u.ue_index(),
-                final_weight,
-                prio_weight,
-                gbr_weight,
-                pf_weight,
-                delay_weight);
+    sched_logger.info(
+        "DL resource priority: ue={} final_weight={:.6e} [prio={:.3f} × gbr={:.3f} × pf={:.3f} × delay={:.3f}]",
+        u.ue_index(),
+        final_weight,
+        prio_weight,
+        gbr_weight,
+        pf_weight,
+        delay_weight);
   }
   
   return final_weight;
@@ -483,3 +513,4 @@ void scheduler_time_qos::ue_ctxt::save_ul_alloc(unsigned alloc_bytes)
   }
   ul_sum_alloc_bytes += alloc_bytes;
 }
+

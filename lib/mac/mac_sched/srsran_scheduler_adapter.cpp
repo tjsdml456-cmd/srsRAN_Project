@@ -247,6 +247,12 @@ void srsran_scheduler_adapter::handle_dl_buffer_state_update(
   bs.ue_index = mac_dl_bs_ind.ue_index;
   bs.lcid     = mac_dl_bs_ind.lcid;
   bs.bs       = mac_dl_bs_ind.bs;
+  bs.hol_dscp = mac_dl_bs_ind.hol_dscp;  
+  logger.debug("Scheduler adapter DL BS: ue_index={} lcid={} bytes={} dscp={}",
+               bs.ue_index,
+               static_cast<unsigned>(bs.lcid),               
+               bs.bs,
+               bs.hol_dscp.has_value() ? static_cast<int>(bs.hol_dscp->to_uint()) : -1);               
   if (mac_dl_bs_ind.hol_toa.has_value()) {
     // Check if at least one slot indication has been processed.
     const high_resolution_clock::time_point sl_tp = last_slot_tp.load(std::memory_order_relaxed);

@@ -25,6 +25,7 @@
 #include "srsran/rlc/rlc_rx.h"
 #include "srsran/rlc/rlc_tx.h"
 #include "srsran/support/async/async_no_op_task.h"
+#include <optional>
 
 using namespace srsran;
 using namespace srs_du;
@@ -76,7 +77,7 @@ public:
 class null_sink_rlc_bearer : public rlc_tx_upper_layer_data_interface, public rlc_rx_lower_layer_interface
 {
 public:
-  void handle_sdu(byte_buffer sdu_buf, bool is_retx) override {}
+  void handle_sdu(byte_buffer sdu_buf, bool is_retx, std::optional<dscp_value_t>) override {}  
   void discard_sdu(uint32_t pdcp_sn) override {}
   void handle_pdu(byte_buffer_slice pdu) override {}
 };

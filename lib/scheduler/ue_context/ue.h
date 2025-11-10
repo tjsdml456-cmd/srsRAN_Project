@@ -128,8 +128,11 @@ public:
   void handle_config_applied();
 
   /// \brief Handles DL Buffer State indication.
-  void handle_dl_buffer_state_indication(lcid_t lcid, unsigned bs, slot_point hol_toa = {});
-
+  void handle_dl_buffer_state_indication(lcid_t                     lcid,
+                                         unsigned                   bs,
+                                         slot_point                 hol_toa   = {},
+                                         std::optional<dscp_value_t> hol_dscp = std::nullopt);
+  
   /// \brief Computes the number of UL pending bytes that are not already allocated in a UL HARQ. The value is used
   /// to derive the required transport block size for an UL grant.
   unsigned pending_ul_newtx_bytes() const;

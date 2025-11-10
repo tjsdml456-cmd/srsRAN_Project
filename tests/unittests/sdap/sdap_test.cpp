@@ -37,8 +37,8 @@ TEST_F(sdap_test, test_tx_no_mapping)
   const std::array<uint8_t, 4> sdu_buf = {0x00, 0x01, 0x02, 0x03};
   byte_buffer                  sdu     = byte_buffer::create(sdu_buf).value();
 
-  sdap->handle_sdu(sdu.deep_copy().value(), qos_flow_id_t::min);
-
+  sdap->handle_sdu(sdu.deep_copy().value(), qos_flow_id_t::min, std::nullopt);
+  
   EXPECT_TRUE(dl_sink1->pdu_queue.empty());
   EXPECT_TRUE(dl_sink2->pdu_queue.empty());
   EXPECT_TRUE(ul_sink->sdu_queue.empty());
@@ -55,7 +55,7 @@ TEST_F(sdap_test, test_tx_unknown_mapping)
   // add different mapping
   sdap->add_mapping(qos_flow_id_t::min, drb_id_t::drb1, sdap_cfg, *dl_sink1);
 
-  sdap->handle_sdu(sdu.deep_copy().value(), qos_flow_id_t::max); // different QFI
+  sdap->handle_sdu(sdu.deep_copy().value(), qos_flow_id_t::max, std::nullopt); // different QFI
 
   EXPECT_TRUE(dl_sink1->pdu_queue.empty());
   EXPECT_TRUE(dl_sink2->pdu_queue.empty());
@@ -72,7 +72,7 @@ TEST_F(sdap_test, test_tx_known_mapping)
   // add mapping
   sdap->add_mapping(qos_flow_id_t::min, drb_id_t::drb1, sdap_cfg, *dl_sink1);
 
-  sdap->handle_sdu(sdu.deep_copy().value(), qos_flow_id_t::min);
+  sdap->handle_sdu(sdu.deep_copy().value(), qos_flow_id_t::min, std::nullopt);
 
   ASSERT_FALSE(dl_sink1->pdu_queue.empty());
   EXPECT_TRUE(dl_sink2->pdu_queue.empty());
@@ -99,8 +99,8 @@ TEST_F(sdap_test, test_tx_removed_mapping)
   sdap->add_mapping(qos_flow_id_t::min, drb_id_t::drb1, sdap_cfg, *dl_sink1);
   sdap->add_mapping(qos_flow_id_t::max, drb_id_t::drb2, sdap_cfg, *dl_sink2);
 
-  sdap->handle_sdu(sdu1.deep_copy().value(), qos_flow_id_t::min);
-  sdap->handle_sdu(sdu2.deep_copy().value(), qos_flow_id_t::max);
+  sdap->handle_sdu(sdu1.deep_copy().value(), qos_flow_id_t::min, std::nullopt);
+  sdap->handle_sdu(sdu2.deep_copy().value(), qos_flow_id_t::max, std::nullopt);
 
   ASSERT_FALSE(dl_sink1->pdu_queue.empty());
   EXPECT_EQ(dl_sink1->pdu_queue.front(), sdu1);
@@ -114,8 +114,8 @@ TEST_F(sdap_test, test_tx_removed_mapping)
 
   sdap->remove_mapping(drb_id_t::drb1);
 
-  sdap->handle_sdu(sdu3.deep_copy().value(), qos_flow_id_t::min);
-  sdap->handle_sdu(sdu4.deep_copy().value(), qos_flow_id_t::max);
+  sdap->handle_sdu(sdu3.deep_copy().value(), qos_flow_id_t::min, std::nullopt);
+  sdap->handle_sdu(sdu4.deep_copy().value(), qos_flow_id_t::max, std::nullopt);
 
   EXPECT_TRUE(dl_sink1->pdu_queue.empty());
 
@@ -162,7 +162,7 @@ TEST_F(sdap_test, test_rx_known_mapping)
   // add mapping
   sdap->add_mapping(qos_flow_id_t::min, drb_id_t::drb1, sdap_cfg, *dl_sink1);
 
-  sdap->get_sdap_rx_pdu_handler(drb_id_t::drb1).handle_pdu(pdu.deep_copy().value());
+  sdap->get_sdap_rx_pdu_handler(drb_id_t::drb1).handle_pdu(pdu.deep_copy().value(), std::nullopt);
 
   ASSERT_FALSE(ul_sink->sdu_queue.empty());
   EXPECT_EQ(ul_sink->sdu_queue.front(), pdu);

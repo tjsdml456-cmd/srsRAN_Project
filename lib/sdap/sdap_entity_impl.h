@@ -51,7 +51,7 @@ public:
   sdap_tx_sdu_handler& get_sdap_tx_sdu_handler() final { return *this; }
 
   /// Handle the incoming SDU and redirect to mapped DRB.
-  void handle_sdu(byte_buffer sdu, qos_flow_id_t qos_flow_id) final
+  void handle_sdu(byte_buffer sdu, qos_flow_id_t qos_flow_id, std::optional<dscp_value_t> dscp) final  
   {
     auto tx_it = tx_map.find(qos_flow_id);
     if (tx_it == tx_map.end()) {
@@ -65,7 +65,7 @@ public:
                      drb_id, 
                      sdu.length());
         
-    tx_it->second->handle_sdu(std::move(sdu));
+    tx_it->second->handle_sdu(std::move(sdu), dscp);  
   }
 
   bool is_mapped(qos_flow_id_t qfi) final { return tx_map.find(qfi) != tx_map.end(); }

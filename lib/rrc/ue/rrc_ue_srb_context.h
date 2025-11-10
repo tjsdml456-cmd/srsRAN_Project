@@ -25,6 +25,7 @@
 #include "adapters/pdcp_adapters.h"
 #include "srsran/pdcp/pdcp_factory.h"
 #include "srsran/support/executors/inline_task_executor.h"
+#include <optional>
 
 namespace srsran {
 namespace srs_cu_cp {
@@ -137,8 +138,8 @@ public:
   // Add ciphering and integrity protection to an RRC PDU.
   pdcp_tx_result pack_rrc_pdu(byte_buffer rrc_pdu)
   {
-    pdcp_context.entity->get_tx_upper_data_interface().handle_sdu(std::move(rrc_pdu));
-
+    pdcp_context.entity->get_tx_upper_data_interface().handle_sdu(std::move(rrc_pdu), std::nullopt);
+    
     byte_buffer packed_pdu = pdcp_context.pdcp_tx_notifier.get_pdcp_pdu();
 
     // If the PDCP layer failed to pack the PDU, return the failure cause.

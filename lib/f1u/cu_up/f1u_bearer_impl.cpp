@@ -144,7 +144,7 @@ void f1u_bearer_impl::handle_pdu_impl(nru_ul_message msg)
   }
 }
 
-void f1u_bearer_impl::handle_sdu(byte_buffer sdu, bool is_retx)
+void f1u_bearer_impl::handle_sdu(byte_buffer sdu, bool is_retx, std::optional<dscp_value_t> dscp)
 {
   if (stopped) {
     return;
@@ -155,6 +155,7 @@ void f1u_bearer_impl::handle_sdu(byte_buffer sdu, bool is_retx)
 
   // attach the SDU
   msg.t_pdu = std::move(sdu);
+  msg.dscp  = dscp;
 
   // set retransmission flag
   msg.dl_user_data.retransmission_flag = is_retx;

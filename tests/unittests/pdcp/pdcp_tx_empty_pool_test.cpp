@@ -25,6 +25,7 @@
 #include "srsran/pdcp/pdcp_config.h"
 #include <gtest/gtest.h>
 #include <queue>
+#include <optional>
 
 using namespace srsran;
 
@@ -70,10 +71,10 @@ TEST_P(pdcp_tx_empty_pool_test, empty_pool)
     for (uint32_t i = 0; i < n_sdus; i++) {
       auto sdu_buf = byte_buffer::create(sdu1);
       if (not sdu_buf.has_value()) {
-        pdcp_tx->handle_sdu({});
-        break;
+        pdcp_tx->handle_sdu({}, std::nullopt);        
+	break;
       }
-      pdcp_tx->handle_sdu(std::move(sdu_buf.value()));
+      pdcp_tx->handle_sdu(std::move(sdu_buf.value()), std::nullopt);      
     }
     // check nof max_count reached and max protocol failures.
     ASSERT_NE(test_frame.pdu_queue.size(), n_sdus);

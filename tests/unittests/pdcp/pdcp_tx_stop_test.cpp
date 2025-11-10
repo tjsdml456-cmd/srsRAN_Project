@@ -26,6 +26,7 @@
 #include "srsran/support/test_utils.h"
 #include <gtest/gtest.h>
 #include <queue>
+#include <optional>
 
 using namespace srsran;
 
@@ -58,10 +59,10 @@ TEST_P(pdcp_tx_stop_test, stop_when_there_are_pending_pdus)
 
   // Push SDUs to entity, but don't run crypto executor.
   byte_buffer test_sdu1 = byte_buffer::create(sdu1).value();
-  pdcp_tx->handle_sdu(std::move(test_sdu1));
+  pdcp_tx->handle_sdu(std::move(test_sdu1), std::nullopt);
 
   byte_buffer test_sdu2 = byte_buffer::create(sdu2).value();
-  pdcp_tx->handle_sdu(std::move(test_sdu2));
+  pdcp_tx->handle_sdu(std::move(test_sdu2), std::nullopt);
 
   // Check await rx crypto flag is not set.
   manual_event_flag& awaitable = pdcp_tx->crypto_awaitable();
@@ -111,12 +112,12 @@ TEST_P(pdcp_tx_stop_test, full_crypto_engine_does_not_stall)
   // Push SDUs to entity, but don't run crypto executor.
   for (uint32_t count = 0; count < crypto_worker_qsize; count++) {
     byte_buffer test_sdu1 = byte_buffer::create(sdu1).value();
-    pdcp_tx->handle_sdu(std::move(test_sdu1));
+    pdcp_tx->handle_sdu(std::move(test_sdu1), std::nullopt);
   }
 
   // This PDU should be dropped.
   byte_buffer dropped_sdu = byte_buffer::create(sdu1).value();
-  pdcp_tx->handle_sdu(std::move(dropped_sdu));
+  pdcp_tx->handle_sdu(std::move(dropped_sdu), std::nullopt);
 
   {
     pdcp_tx_metrics_container m = pdcp_tx->get_metrics_and_reset();
@@ -134,7 +135,7 @@ TEST_P(pdcp_tx_stop_test, full_crypto_engine_does_not_stall)
   // Send PDUs again. This should stalls, waiting for the lost PDU.
   for (uint32_t count = 0; count < crypto_worker_qsize; count++) {
     byte_buffer test_sdu1 = byte_buffer::create(sdu1).value();
-    pdcp_tx->handle_sdu(std::move(test_sdu1));
+    pdcp_tx->handle_sdu(std::move(test_sdu1), std::nullopt);
   }
   wait_pending_crypto();
   wait_pending_dl();
@@ -178,11 +179,11 @@ TEST_P(pdcp_tx_stop_test, full_dl_worker_does_not_stall)
   // Push SDUs to entity, but don't run crypto executor.
   for (uint32_t count = 0; count < dl_worker_qsize; count++) {
     byte_buffer test_sdu1 = byte_buffer::create(sdu1).value();
-    pdcp_tx->handle_sdu(std::move(test_sdu1));
+    pdcp_tx->handle_sdu(std::move(test_sdu1), std::nullopt);
     wait_one_crypto_task();
   }
   byte_buffer test_sdu1 = byte_buffer::create(sdu1).value();
-  pdcp_tx->handle_sdu(std::move(test_sdu1));
+  pdcp_tx->handle_sdu(std::move(test_sdu1), std::nullopt);
   wait_one_crypto_task();
 
   // Check await rx crypto flag is not set.
@@ -223,3 +224,4 @@ int main(int argc, char** argv)
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
+

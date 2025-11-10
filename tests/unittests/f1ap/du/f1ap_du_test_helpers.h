@@ -28,6 +28,7 @@
 #include "srsran/f1ap/du/f1ap_du.h"
 #include "srsran/f1ap/du/f1ap_du_factory.h"
 #include "srsran/f1ap/du/f1ap_du_positioning_handler.h"
+#include "srsran/ran/qos/dscp_qos_mapping.h"
 #include "srsran/f1ap/f1ap_message.h"
 #include "srsran/f1ap/gateways/f1c_connection_client.h"
 #include "srsran/f1u/du/f1u_rx_sdu_notifier.h"
@@ -241,14 +242,16 @@ public:
 class dummy_f1u_rx_sdu_notifier : public f1u_rx_sdu_notifier
 {
 public:
-  byte_buffer             last_pdu;
-  bool                    last_pdu_is_retx;
-  std::optional<uint32_t> last_discard_sn;
+  byte_buffer                     last_pdu;
+  bool                            last_pdu_is_retx;
+  std::optional<dscp_value_t>     last_dscp;
+  std::optional<uint32_t>         last_discard_sn;
 
-  void on_new_sdu(byte_buffer sdu, bool is_retx) override
+  void on_new_sdu(byte_buffer sdu, bool is_retx, std::optional<dscp_value_t> dscp) override
   {
     last_pdu         = std::move(sdu);
     last_pdu_is_retx = is_retx;
+    last_dscp        = dscp;
   }
 
   void on_discard_sdu(uint32_t pdcp_sn) override { last_discard_sn = pdcp_sn; }
@@ -336,3 +339,4 @@ protected:
 };
 
 } // namespace srsran::srs_du
+

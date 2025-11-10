@@ -28,6 +28,7 @@
 #include "rlc_retx_queue.h"
 #include "rlc_sdu_queue_lockfree.h"
 #include "rlc_tx_entity.h"
+#include "srsran/ran/qos/dscp_qos_mapping.h"
 #include "srsran/support/executors/task_executor.h"
 #include "srsran/support/sdu_window.h"
 #include "srsran/support/timers.h"
@@ -51,6 +52,9 @@ struct rlc_tx_am_sdu_info {
   /// This represents the time where the SDU is put into the SDU queue.
   std::chrono::time_point<std::chrono::steady_clock> time_of_arrival;
 
+  /// \brief Optional DSCP marking associated with the SDU.
+  std::optional<dscp_value_t> dscp;
+  
   /// \brief Time of departure from RLC towards lower layers.
   ///
   /// This represents the time where the SDU is pulled from SDU queue, put into the TX window, and the PDU (or the first
@@ -200,7 +204,7 @@ public:
   void set_status_provider(rlc_rx_am_status_provider* status_provider_) { status_provider = status_provider_; }
 
   // Interfaces for higher layers
-  void handle_sdu(byte_buffer sdu_buf, bool is_retx) override;
+  void handle_sdu(byte_buffer sdu_buf, bool is_retx, std::optional<dscp_value_t> dscp = std::nullopt) override;  
   void discard_sdu(uint32_t pdcp_sn) override;
 
   // Interfaces for lower layers

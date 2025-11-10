@@ -29,6 +29,7 @@
 #include <cstdlib>
 #include <getopt.h>
 #include <queue>
+#include <optional>
 
 using namespace srsran;
 
@@ -52,7 +53,7 @@ public:
   void on_protocol_failure() final {}
 
   /// PDCP TX lower layer data notifier
-  void on_new_pdu(byte_buffer pdu, bool is_retx) final
+  void on_new_pdu(byte_buffer pdu, bool is_retx, std::optional<dscp_value_t>) final  
   {
     if (is_retx) {
       retx_queue.push(std::move(pdu));
@@ -168,7 +169,7 @@ int main(int argc, char** argv)
 
   // Write SDU
   byte_buffer sdu = byte_buffer::create(sdu1).value();
-  pdcp_tx->handle_sdu(std::move(sdu));
+  pdcp_tx->handle_sdu(std::move(sdu), std::nullopt);  
   logger.info(frame.pdu_queue.front().begin(),
               frame.pdu_queue.front().end(),
               "PDCP PDU. pdu_len={}",

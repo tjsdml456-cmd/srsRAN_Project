@@ -102,7 +102,7 @@ public:
       ue& u = parent.ue_db[dl_bo.ue_index];
 
       // Forward DL BO update to UE.
-      u.handle_dl_buffer_state_indication(dl_bo.lcid, dl_bo.bs, dl_bo.hol_toa);
+      u.handle_dl_buffer_state_indication(dl_bo.lcid, dl_bo.bs, dl_bo.hol_toa, dl_bo.hol_dscp);      
       if (u.get_pcell().is_in_fallback_mode()) {
         // Signal SRB fallback scheduler with the new SRB0/SRB1 buffer state.
         parent.fallback_sched.handle_dl_buffer_state_indication(dl_bo.ue_index);

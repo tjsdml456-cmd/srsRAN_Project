@@ -25,6 +25,7 @@
 #include "srsran/gtpu/gtpu_tunnel_common_rx.h"
 #include "srsran/gtpu/gtpu_tunnel_ngu_factory.h"
 #include "srsran/gtpu/gtpu_tunnel_ngu_tx.h"
+#include "srsran/ran/qos/dscp_qos_mapping.h"
 #include "srsran/support/executors/manual_task_worker.h"
 #include "srsran/support/rate_limiting/token_bucket.h"
 #include "srsran/support/rate_limiting/token_bucket_config.h"
@@ -35,15 +36,17 @@ using namespace srsran;
 
 class gtpu_tunnel_rx_lower_dummy : public gtpu_tunnel_ngu_rx_lower_layer_notifier
 {
-  void on_new_sdu(byte_buffer sdu, qos_flow_id_t qos_flow_id) final
+  void on_new_sdu(byte_buffer sdu, qos_flow_id_t qos_flow_id, std::optional<dscp_value_t> dscp) final  
   {
     last_rx             = std::move(sdu);
     last_rx_qos_flow_id = qos_flow_id;
+    last_dscp           = dscp;  
   }
 
 public:
-  byte_buffer   last_rx;
-  qos_flow_id_t last_rx_qos_flow_id;
+  byte_buffer                      last_rx;
+  qos_flow_id_t                    last_rx_qos_flow_id;
+  std::optional<dscp_value_t>      last_dscp;
 };
 class gtpu_tunnel_tx_upper_dummy : public gtpu_tunnel_common_tx_upper_layer_notifier
 {

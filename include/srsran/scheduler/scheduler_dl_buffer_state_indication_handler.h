@@ -25,6 +25,8 @@
 #include "srsran/ran/du_types.h"
 #include "srsran/ran/logical_channel/lcid.h"
 #include "srsran/ran/slot_point.h"
+#include "srsran/ran/qos/dscp_qos_mapping.h"
+#include <optional>
 
 namespace srsran {
 
@@ -34,7 +36,8 @@ struct dl_buffer_state_indication_message {
   lcid_t        lcid;
   unsigned      bs;
   /// Time-of-arrival, in slots, of the oldest PDU in the RLC entity Tx buffer.
-  slot_point hol_toa;
+  slot_point                  hol_toa = {};
+  std::optional<dscp_value_t> hol_dscp = std::nullopt;
 };
 
 /// Scheduler interface to push DL buffer state updates for a given RLC bearer.
@@ -48,3 +51,4 @@ public:
 };
 
 } // namespace srsran
+

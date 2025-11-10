@@ -22,6 +22,7 @@
 
 #include "dl_logical_channel_manager.h"
 #include "srsran/ran/qos/arp_prio_level.h"
+#include <limits>
 
 using namespace srsran;
 
@@ -50,6 +51,10 @@ static constexpr unsigned MAX_CES_PER_UE = 5;
 
 // Size of the pending_ces queue.
 static constexpr unsigned MAX_PENDING_CES = MAX_NOF_DU_UES * MAX_CES_PER_UE;
+
+// DSCP prioritization scaling factor.
+static constexpr uint64_t DSCP_PRIORITY_SPAN = 64U;
+static constexpr uint64_t DSCP_DEFAULT_BIAS  = DSCP_PRIORITY_SPAN / 2U;
 
 dl_logical_channel_manager::dl_logical_channel_manager(subcarrier_spacing              scs_common_,
                                                        bool                            starts_in_fallback,
@@ -314,14 +319,62 @@ unsigned dl_logical_channel_manager::allocate_mac_sdu(dl_msg_lc_info& subpdu, un
   return allocate_mac_sdu(subpdu, lcid_with_prio, rem_bytes);
 }
 
+uint64_t dl_logical_channel_manager::compute_priority_metric(lcid_t lcid) const
+{
+  uint64_t base_prio = std::numeric_limits<uint16_t>::max();
+
+  if (channel_configs.has_value() && channel_configs->contains(lcid)) {
+    base_prio = get_lc_prio(*channel_configs.value()[lcid]);
+  }
+
+  uint64_t dscp_bias = DSCP_DEFAULT_BIAS;
+  if (channels[lcid].hol_dscp.has_value()) {
+    unsigned raw_dscp = channels[lcid].hol_dscp->to_uint();
+    if (raw_dscp >= DSCP_PRIORITY_SPAN) {
+      raw_dscp = DSCP_PRIORITY_SPAN - 1U;
+    }
+    dscp_bias = (DSCP_PRIORITY_SPAN - 1U) - raw_dscp;
+  }
+
+  return (base_prio << 6U) + dscp_bias;
+}
+
 lcid_t dl_logical_channel_manager::get_max_prio_lcid() const
 {
+  lcid_t  best_lcid   = INVALID_LCID;
+  uint64_t best_metric = std::numeric_limits<uint64_t>::max();
+
   for (const auto lcid : sorted_channels) {
-    if (has_pending_bytes(lcid)) {
-      return lcid;
+    if (not has_pending_bytes(lcid)) {
+      continue;
+    }
+
+    const uint64_t metric = compute_priority_metric(lcid);
+    if (metric < best_metric) {
+      best_metric = metric;
+      best_lcid   = lcid;
+      continue;
+    }
+
+    if (metric == best_metric && best_lcid != INVALID_LCID) {
+      const channel_context& current_best = channels[best_lcid];
+      const channel_context& candidate    = channels[lcid];
+
+      const bool candidate_has_dscp = candidate.hol_dscp.has_value();
+      const bool best_has_dscp      = current_best.hol_dscp.has_value();
+
+      if (candidate_has_dscp && not best_has_dscp) {
+        best_lcid = lcid;
+        continue;
+      }
+
+      if (candidate.hol_toa < current_best.hol_toa) {
+        best_lcid = lcid;
+      }
     }
   }
-  return INVALID_LCID;
+
+  return best_lcid;
 }
 
 unsigned dl_logical_channel_manager::allocate_mac_sdu(dl_msg_lc_info& subpdu, lcid_t lcid, unsigned rem_bytes)
@@ -412,6 +465,9 @@ void dl_logical_channel_manager::channel_context::reset()
   buf_st           = 0;
   last_sched_bytes = 0;
   avg_bytes_per_slot.resize(0);
+  hol_toa   = {};
+  hol_dscp  = std::nullopt;
+  slice_id.reset();
 }
 
 unsigned
@@ -535,3 +591,4 @@ unsigned srsran::build_dl_transport_block_info(dl_msg_tb_info&             tb_in
   }
   return total_subpdu_bytes;
 }
+

@@ -24,6 +24,7 @@
 
 #include "srsran/ran/du_types.h"
 #include "srsran/ran/logical_channel/lcid.h"
+#include "srsran/ran/qos/dscp_qos_mapping.h"
 #include <chrono>
 #include <optional>
 
@@ -37,7 +38,9 @@ struct mac_dl_buffer_state_indication_message {
   unsigned bs;
   /// \brief Time-of-arrival of the oldest PDU in the RLC entity Tx buffer. This metric is relevant for delay
   /// prioritization in the scheduler.
-  std::optional<std::chrono::system_clock::time_point> hol_toa;
+  std::optional<std::chrono::system_clock::time_point> hol_toa = std::nullopt;
+  /// Optional DSCP marking associated with the head-of-line SDU.
+  std::optional<dscp_value_t> hol_dscp = std::nullopt;
 };
 
 class mac_ue_control_information_handler
@@ -51,3 +54,4 @@ public:
 };
 
 } // namespace srsran
+

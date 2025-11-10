@@ -91,7 +91,7 @@ public:
   void on_protocol_failure() final { nof_protocol_failure++; }
 
   // PDCP TX lower layer data notifier
-  void on_new_pdu(byte_buffer pdu, bool is_retx) final
+  void on_new_pdu(byte_buffer pdu, bool is_retx, std::optional<dscp_value_t>) final  
   {
     if (is_retx) {
       retx_queue.push(std::move(pdu));

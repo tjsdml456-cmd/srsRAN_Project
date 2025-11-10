@@ -30,6 +30,8 @@
 #include "srsran/mac/mac_ue_control_information_handler.h"
 #include "srsran/rlc/rlc_rx.h"
 #include "srsran/rlc/rlc_tx.h"
+#include "srsran/ran/qos/dscp_qos_mapping.h"
+#include <optional>
 
 namespace srsran {
 namespace srs_du {
@@ -48,7 +50,7 @@ public:
   {
     srsran_assert(rlc_tx != nullptr, "RLC Tx PDU notifier is disconnected");
 
-    rlc_tx->handle_sdu(std::move(pdu), /* is_retx = */ false);
+    rlc_tx->handle_sdu(std::move(pdu), /* is_retx = */ false, std::nullopt);
   }
 
 private:
@@ -66,10 +68,10 @@ public:
   /// \brief Stop forwarding SDUs to the RLC layer.
   void disconnect();
 
-  void on_new_sdu(byte_buffer sdu, bool is_retx) override
+  void on_new_sdu(byte_buffer sdu, bool is_retx, std::optional<dscp_value_t> dscp) override
   {
     srsran_assert(rlc_tx != nullptr, "RLC Tx SDU notifier is disconnected");
-    rlc_tx->handle_sdu(std::move(sdu), is_retx);
+    rlc_tx->handle_sdu(std::move(sdu), is_retx, dscp);
   }
 
   void on_discard_sdu(uint32_t pdcp_sn) override { rlc_tx->discard_sdu(pdcp_sn); }
@@ -254,7 +256,7 @@ public:
     bs.ue_index = ue_index;
     bs.lcid     = lcid;
     bs.bs       = rlc_bs.pending_bytes;
-    // TODO: set hol_toa
+    bs.hol_dscp = rlc_bs.hol_dscp;
     if (SRSRAN_UNLIKELY(not connected.load(std::memory_order_relaxed))) {
       // Discard.
       bs.bs = 0;
@@ -315,3 +317,4 @@ private:
 
 } // namespace srs_du
 } // namespace srsran
+

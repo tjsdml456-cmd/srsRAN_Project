@@ -24,7 +24,9 @@
 
 #include "srsran/adt/byte_buffer.h"
 #include "srsran/pdcp/pdcp_config.h"
+#include "srsran/ran/qos/dscp_qos_mapping.h"
 #include "srsran/security/security.h"
+#include <optional>
 
 /*
  * This file will hold the interfaces and notifiers for the PDCP entity.
@@ -61,7 +63,7 @@ public:
   pdcp_tx_lower_notifier(const pdcp_tx_lower_notifier&&)            = delete;
   pdcp_tx_lower_notifier& operator=(const pdcp_tx_lower_notifier&&) = delete;
 
-  virtual void on_new_pdu(byte_buffer pdu, bool is_retx) = 0; ///< Pass PDCP PDU to the lower layers.
+  virtual void on_new_pdu(byte_buffer pdu, bool is_retx, std::optional<dscp_value_t> dscp = std::nullopt) = 0; ///< Pass PDCP PDU to the lower layers.  
   virtual void on_discard_pdu(uint32_t pdcp_sn)          = 0; ///< Order lower layers to discard PDU
 };
 
@@ -140,7 +142,7 @@ public:
   pdcp_tx_upper_data_interface& operator=(const pdcp_tx_upper_data_interface&&) = delete;
 
   /// Handle the incoming SDU.
-  virtual void handle_sdu(byte_buffer sdu) = 0;
+  virtual void handle_sdu(byte_buffer sdu, std::optional<dscp_value_t> dscp) = 0;
 };
 
 /// This interface represents the control SAP of the transmitting side of a PDCP entity.

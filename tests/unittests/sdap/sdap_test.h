@@ -23,6 +23,7 @@
 #pragma once
 
 #include "lib/sdap/sdap_entity_impl.h"
+#include "srsran/ran/qos/dscp_qos_mapping.h"
 #include "srsran/sdap/sdap.h"
 #include <gtest/gtest.h>
 #include <queue>
@@ -48,7 +49,10 @@ public:
   std::queue<byte_buffer> pdu_queue;
 
   // sdap_tx_pdu_notifier interface
-  void on_new_pdu(byte_buffer pdu) override { pdu_queue.push(std::move(pdu)); }
+  void on_new_pdu(byte_buffer pdu, std::optional<dscp_value_t>) override
+  {
+    pdu_queue.push(std::move(pdu));
+  }
 };
 
 /// Fixture class for SDAP tests

@@ -64,10 +64,10 @@ public:
 
   void connect_sdap(sdap_tx_sdu_handler& sdap_handler_) { sdap_handler = &sdap_handler_; }
 
-  void on_new_sdu(byte_buffer sdu, qos_flow_id_t qos_flow_id) override
+  void on_new_sdu(byte_buffer sdu, qos_flow_id_t qos_flow_id, std::optional<dscp_value_t> dscp) override  
   {
     srsran_assert(sdap_handler != nullptr, "SDAP handler must not be nullptr");
-    sdap_handler->handle_sdu(std::move(sdu), qos_flow_id);
+    sdap_handler->handle_sdu(std::move(sdu), qos_flow_id, dscp);    
   }
 
 private:

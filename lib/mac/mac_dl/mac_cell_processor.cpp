@@ -563,7 +563,15 @@ void mac_cell_processor::update_logical_channel_dl_buffer_states(const dl_sched_
         rlc_buffer_state                       rlc_bs = bearer->on_buffer_state_update();
         mac_dl_buffer_state_indication_message bs{
             ue_mng.get_ue_index(grant.pdsch_cfg.rnti), lc_info.lcid.to_lcid(), rlc_bs.pending_bytes};
-        sched.handle_dl_buffer_state_update(bs);
+        bs.hol_dscp = rlc_bs.hol_dscp;        
+        logger.debug(
+            "MAC DL buffer update: ue_index={} rnti=0x{:04x} lcid={} bytes={} dscp={}",
+            bs.ue_index,
+            to_value(grant.pdsch_cfg.rnti),
+            static_cast<unsigned>(bs.lcid),
+            bs.bs,
+            bs.hol_dscp.has_value() ? static_cast<int>(bs.hol_dscp->to_uint()) : -1);	
+	sched.handle_dl_buffer_state_update(bs);
       }
     }
   }

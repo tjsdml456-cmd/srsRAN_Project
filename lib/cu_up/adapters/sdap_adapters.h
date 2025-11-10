@@ -37,11 +37,11 @@ public:
   ~sdap_gtpu_adapter() = default;
 
   void connect_gtpu(gtpu_tunnel_ngu_tx_lower_layer_interface& gtpu_handler_) { gtpu_handler = &gtpu_handler_; }
-
-  void on_new_sdu(byte_buffer sdu, qos_flow_id_t qfi) override
+  
+  void on_new_sdu(byte_buffer sdu, qos_flow_id_t qfi) override  
   {
     srsran_assert(gtpu_handler != nullptr, "GTPU handler must not be nullptr");
-    gtpu_handler->handle_sdu(std::move(sdu), qfi);
+    gtpu_handler->handle_sdu(std::move(sdu), qfi);  
   }
 
 private:
@@ -57,12 +57,16 @@ public:
   void connect_pdcp(pdcp_tx_upper_data_interface& pdcp_handler_) { pdcp_handler = &pdcp_handler_; }
   void disconnect_pdcp() { pdcp_handler = nullptr; }
 
-  void on_new_pdu(byte_buffer pdu) override
+  void on_new_pdu(byte_buffer pdu, std::optional<dscp_value_t> dscp) override  
   {
     if (pdcp_handler == nullptr) {
       srslog::fetch_basic_logger("SDAP").warning("Unconnected PDCP handler. Dropping SDAP PDU");
     } else {
-      pdcp_handler->handle_sdu(std::move(pdu));
+      srslog::fetch_basic_logger("SDAP").debug("SDAP→PDCP PDU len={} dscp={}",
+                                               pdu.length(),
+                                               dscp.has_value() ? dscp->to_uint() : -1);
+
+      pdcp_handler->handle_sdu(std::move(pdu), dscp);    
     }
   }
 

@@ -41,11 +41,14 @@ public:
   {
   }
 
-  void handle_sdu(byte_buffer sdu)
+  void handle_sdu(byte_buffer sdu, std::optional<dscp_value_t> dscp)  
   {
-    // pass through
-    logger.log_debug("TX PDU. {} pdu_len={}", qfi, sdu.length());
-    pdu_notifier.on_new_pdu(std::move(sdu));
+    if (dscp.has_value()) {
+      logger.log_debug("TX PDU. {} pdu_len={} dscp={}", qfi, sdu.length(), dscp->to_uint());
+    } else {
+      logger.log_debug("TX PDU. {} pdu_len={} dscp=none", qfi, sdu.length());
+    }
+    pdu_notifier.on_new_pdu(std::move(sdu), dscp);  
   }
 
   drb_id_t get_drb_id() const { return drb_id; }

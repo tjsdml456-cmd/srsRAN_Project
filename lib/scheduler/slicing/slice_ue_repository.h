@@ -23,7 +23,9 @@
 #pragma once
 
 #include "../ue_context/ue.h"
+#include "fmt/format.h"
 #include "srsran/adt/slotted_array.h"
+#include <optional>
 
 namespace srsran {
 
@@ -110,6 +112,44 @@ public:
   slot_point dl_hol_toa(lcid_t lcid) const
   {
     return contains(lcid) ? u.dl_logical_channels().hol_toa(lcid) : slot_point{};
+  }
+
+  std::optional<dscp_value_t> max_dl_dscp() const
+  {
+    std::optional<dscp_value_t> max_dscp;
+    auto                        lc_list = u.ue_cfg_dedicated()->logical_channels();
+    auto&                       logger  = srslog::fetch_basic_logger("SCHED");    
+    
+    if (not lc_list.has_value()) {
+      logger.debug("max_dl_dscp: ue={} no logical channel config", fmt::underlying(ue_index()));      
+      return max_dscp;
+    }
+
+    for (logical_channel_config_ptr lc : *lc_list) {
+      bool                       lc_in_slice = contains(lc->lcid);
+      unsigned                   pending     = pending_dl_newtx_bytes(lc->lcid);      
+      std::optional<dscp_value_t> lc_dscp    = u.dl_logical_channels().hol_dscp(lc->lcid);
+
+      logger.debug("max_dl_dscp: ue={} lcid={} in_slice={} pending={} dscp={}",
+                   fmt::underlying(ue_index()),
+                   static_cast<unsigned>(lc->lcid),                   
+		   lc_in_slice,
+                   pending,
+                   lc_dscp.has_value() ? static_cast<int>(lc_dscp->to_uint()) : -1);
+
+      if (not lc_in_slice or pending == 0 or not lc_dscp.has_value()) {        
+	continue;
+      }
+
+      if (not max_dscp.has_value() or lc_dscp->to_uint() > max_dscp->to_uint()) {        
+	      max_dscp = lc_dscp;
+      }
+    }
+
+    if (max_dscp.has_value()) {
+      logger.debug("max_dl_dscp: ue={} selected_dscp={}", fmt::underlying(ue_index()), max_dscp->to_uint());      
+    }    
+    return max_dscp;
   }
 
 private:

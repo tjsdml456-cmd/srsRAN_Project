@@ -21,6 +21,7 @@
  */
 
 #include "lib/sdap/sdap_entity_tx_impl.h"
+#include "srsran/ran/qos/dscp_qos_mapping.h"
 #include "srsran/sdap/sdap.h"
 #include <gtest/gtest.h>
 #include <queue>
@@ -35,7 +36,10 @@ public:
   std::queue<byte_buffer> pdu_queue;
 
   // sdap_tx_pdu_notifier interface
-  void on_new_pdu(byte_buffer pdu) override { pdu_queue.push(std::move(pdu)); }
+  void on_new_pdu(byte_buffer pdu, std::optional<dscp_value_t>) override
+  {
+    pdu_queue.push(std::move(pdu));
+  }
 };
 
 /// Fixture class for SDAP TX tests
@@ -84,8 +88,8 @@ TEST_F(sdap_tx_test, test_tx)
   const std::array<uint8_t, 4> sdu_buf = {0x00, 0x01, 0x02, 0x03};
   byte_buffer                  sdu     = byte_buffer::create(sdu_buf).value();
 
-  sdap->handle_sdu(sdu.deep_copy().value());
-
+  sdap->handle_sdu(sdu.deep_copy().value(), std::nullopt);
+  
   ASSERT_FALSE(tester->pdu_queue.empty());
   EXPECT_EQ(tester->pdu_queue.front(), sdu);
   tester->pdu_queue.pop();

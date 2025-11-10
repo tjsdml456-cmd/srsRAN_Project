@@ -37,6 +37,7 @@
 #include "srsran/security/security.h"
 #include "srsran/security/security_engine.h"
 #include "srsran/support/timers.h"
+#include <optional>
 
 namespace srsran {
 
@@ -93,6 +94,7 @@ struct pdcp_tx_buffer_info {
   uint16_t          retx_id; /// ID used to identify if PDU is out of date.
   uint32_t          count;   /// COUNT associated with this SDU/PDU.
   byte_buffer       buf;     /// In/Out parameter for SDU+Header/PDU.
+  std::optional<dscp_value_t> dscp; /// DSCP marking associated with the SDU/PDU.  
   pdcp_crypto_token token;   /// Crypto token to count in-flight PDUs.
 };
 
@@ -101,6 +103,7 @@ struct pdcp_tx_pdu_info {
   byte_buffer                           pdu;     /// Buffer for PDU.
   uint32_t                              count;   /// COUNT associated with this SDU/PDU.
   std::chrono::system_clock::time_point sdu_toa; /// Time of arrival of SDU.
+  std::optional<dscp_value_t>           dscp;    /// DSCP marking for future lower layer propagation.
 };
 
 /// Base class used for transmitting PDCP bearers.
@@ -166,8 +169,8 @@ public:
   /*
    * SDU/PDU handlers
    */
-  void handle_sdu(byte_buffer buf) override;
-
+  void handle_sdu(byte_buffer buf, std::optional<dscp_value_t> dscp) override;
+  
   void handle_transmit_notification(uint32_t notif_sn) override;
   void handle_delivery_notification(uint32_t notif_sn) override;
   void handle_retransmit_notification(uint32_t notif_sn) override;

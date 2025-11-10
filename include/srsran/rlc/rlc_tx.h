@@ -23,6 +23,7 @@
 #pragma once
 
 #include "srsran/adt/byte_buffer.h"
+#include "srsran/ran/qos/dscp_qos_mapping.h"
 #include "srsran/rlc/rlc_buffer_state.h"
 #include <optional>
 
@@ -63,6 +64,8 @@ struct rlc_sdu {
 
   /// \brief Optional PDCP sequence number.
   std::optional<uint32_t> pdcp_sn;
+  /// \brief Optional DSCP marking associated with the SDU.
+  std::optional<dscp_value_t> dscp;
 
   /// \brief Time of arrival at RLC from upper layers.
   ///
@@ -89,7 +92,7 @@ public:
   /// \brief Interface for higher layers to pass SDUs into RLC
   /// \param sdu_buf SDU to be handled
   /// \param is_retx Determines wheter the SDU is a PDCP retransmission or not
-  virtual void handle_sdu(byte_buffer sdu_buf, bool is_retx) = 0;
+  virtual void handle_sdu(byte_buffer sdu_buf, bool is_retx, std::optional<dscp_value_t> dscp = std::nullopt) = 0;
 
   /// \brief Interface for higher layers to discard SDUs from RLC queue
   /// \param pdcp_sn PDCP sequence number (SN) of the SDU that is to be discarded
@@ -200,3 +203,4 @@ public:
   virtual void on_buffer_state_update(const rlc_buffer_state& bsr) = 0;
 };
 } // namespace srsran
+

@@ -21,6 +21,7 @@
  */
 
 #include "rlc_stress_test_traffic.h"
+#include <optional>
 
 using namespace srsran;
 
@@ -46,5 +47,5 @@ void stress_traffic_source::send_pdu()
   }
 
   logger.log_info(sdu.begin(), sdu.end(), "Sending SDU ({} B)", sdu.length());
-  pdcp_tx_upper->handle_sdu(std::move(sdu));
+  pdcp_tx_upper->handle_sdu(std::move(sdu), std::nullopt);
 }

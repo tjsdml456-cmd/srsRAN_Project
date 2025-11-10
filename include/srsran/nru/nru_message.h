@@ -25,6 +25,7 @@
 #include "srsran/adt/byte_buffer.h"
 #include "srsran/adt/byte_buffer_chain.h"
 #include "srsran/adt/static_vector.h"
+#include "srsran/ran/qos/dscp_qos_mapping.h"
 #include <cstdint>
 #include <optional>
 
@@ -191,6 +192,8 @@ struct nru_dl_message {
   byte_buffer t_pdu;
   /// NR-U DL User Data.
   nru_dl_user_data dl_user_data;
+  /// Optional DSCP marking associated with the transport PDU.
+  std::optional<dscp_value_t> dscp;
 
   expected<nru_dl_message> deep_copy()
   {
@@ -201,12 +204,13 @@ struct nru_dl_message {
     }
     copy.t_pdu        = std::move(buf.value());
     copy.dl_user_data = dl_user_data;
+    copy.dscp         = dscp;
     return copy;
   }
 
   bool operator==(const nru_dl_message& other) const
   {
-    return t_pdu == other.t_pdu && dl_user_data == other.dl_user_data;
+    return t_pdu == other.t_pdu && dl_user_data == other.dl_user_data && dscp == other.dscp;
   }
   bool operator!=(const nru_dl_message& other) const { return not(*this == other); }
 };
@@ -248,3 +252,4 @@ struct nru_ul_message {
 };
 
 } // namespace srsran
+

@@ -23,6 +23,7 @@
 #include "lib/gtpu/gtpu_pdu.h"
 #include "lib/gtpu/gtpu_tunnel_ngu_rx_impl.h"
 #include "lib/gtpu/gtpu_tunnel_ngu_tx_impl.h"
+#include "srsran/ran/qos/dscp_qos_mapping.h"
 #include "srsran/support/bit_encoding.h"
 #include "srsran/support/executors/manual_task_worker.h"
 #include "srsran/support/rate_limiting/token_bucket.h"
@@ -108,10 +109,11 @@ public:
 
 class gtpu_tunnel_rx_lower_dummy : public gtpu_tunnel_ngu_rx_lower_layer_notifier
 {
-  void on_new_sdu(byte_buffer sdu, qos_flow_id_t qos_flow_id) final
+  void on_new_sdu(byte_buffer sdu, qos_flow_id_t qos_flow_id, std::optional<dscp_value_t> dscp) final  
   {
     rx_sdus.push_back(std::move(sdu));
     rx_qfis.push_back(qos_flow_id);
+    rx_dscps.push_back(dscp);  
   }
 
 public:
@@ -119,10 +121,12 @@ public:
   {
     rx_sdus.clear();
     rx_qfis.clear();
+    rx_dscps.clear();  
   }
 
-  std::vector<byte_buffer>   rx_sdus;
-  std::vector<qos_flow_id_t> rx_qfis;
+  std::vector<byte_buffer>                  rx_sdus;
+  std::vector<qos_flow_id_t>                rx_qfis;
+  std::vector<std::optional<dscp_value_t>>  rx_dscps;
 };
 
 class gtpu_tunnel_rx_upper_dummy : public gtpu_tunnel_common_rx_upper_layer_interface

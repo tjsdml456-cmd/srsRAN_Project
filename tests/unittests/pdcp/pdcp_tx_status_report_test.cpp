@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <queue>
+#include <optional>
 
 using namespace srsran;
 
@@ -46,7 +47,7 @@ TEST_P(pdcp_tx_status_report_test, handle_status_report)
     for (uint32_t count = tx_next; count < tx_next + n_sdus; ++count) {
       // Write SDU
       byte_buffer sdu = byte_buffer::create(sdu1).value();
-      pdcp_tx->handle_sdu(std::move(sdu));
+      pdcp_tx->handle_sdu(std::move(sdu), std::nullopt);
 
       // Wait for crypto and reordering
       wait_pending_crypto();
@@ -145,7 +146,7 @@ TEST_P(pdcp_tx_status_report_test, data_recovery)
     for (uint32_t count = tx_next; count < tx_next + n_sdus; ++count) {
       // Write SDU
       byte_buffer sdu = byte_buffer::create(sdu1).value();
-      pdcp_tx->handle_sdu(std::move(sdu));
+      pdcp_tx->handle_sdu(std::move(sdu), std::nullopt);
 
       // Wait for crypto and reordering
       wait_pending_crypto();
@@ -229,3 +230,4 @@ int main(int argc, char** argv)
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
+

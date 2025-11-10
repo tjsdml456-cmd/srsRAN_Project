@@ -23,6 +23,8 @@
 #pragma once
 
 #include "srsran/adt/byte_buffer.h"
+#include "srsran/ran/qos/dscp_qos_mapping.h"
+#include <optional>
 
 namespace srsran {
 namespace srs_du {
@@ -35,7 +37,7 @@ class f1u_rx_sdu_notifier
 public:
   virtual ~f1u_rx_sdu_notifier() = default;
 
-  virtual void on_new_sdu(byte_buffer sdu, bool is_retx) = 0;
+  virtual void on_new_sdu(byte_buffer sdu, bool is_retx, std::optional<dscp_value_t> dscp = std::nullopt) = 0;  
   virtual void on_discard_sdu(uint32_t pdcp_sn)          = 0;
 };
 

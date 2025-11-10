@@ -92,7 +92,7 @@ rlc_tx_am_entity::rlc_tx_am_entity(gnb_du_id_t                          gnb_du_i
 }
 
 // TS 38.322 v16.2.0 Sec. 5.2.3.1
-void rlc_tx_am_entity::handle_sdu(byte_buffer sdu_buf, bool is_retx)
+void rlc_tx_am_entity::handle_sdu(byte_buffer sdu_buf, bool is_retx, std::optional<dscp_value_t> dscp)
 {
   rlc_sdu sdu;
   sdu.time_of_arrival = std::chrono::steady_clock::now();
@@ -100,7 +100,13 @@ void rlc_tx_am_entity::handle_sdu(byte_buffer sdu_buf, bool is_retx)
   sdu.buf     = std::move(sdu_buf);
   sdu.is_retx = is_retx;
   sdu.pdcp_sn = get_pdcp_sn(sdu.buf, cfg.pdcp_sn_len, rb_id.is_srb(), logger.get_basic_logger());
-
+  sdu.dscp    = dscp;
+  logger.log_debug(sdu.buf.begin(),
+                   sdu.buf.end(),
+                   "Received SDU for RLC AM. sdu_len={} is_retx={} dscp={}",
+                   sdu.buf.length(),
+                   is_retx,
+                   dscp.has_value() ? dscp->to_uint() : -1);
   // Sanity check for PDCP ReTx in SRBs
   if (SRSRAN_UNLIKELY(rb_id.is_srb() && sdu.is_retx)) {
     logger.log_error("Ignored unexpected PDCP retransmission flag in SRB RLC AM SDU");
@@ -273,6 +279,7 @@ size_t rlc_tx_am_entity::build_new_pdu(span<uint8_t> rlc_pdu_buf)
   sdu_info.pdcp_sn             = sdu.pdcp_sn;
   sdu_info.time_of_arrival     = sdu.time_of_arrival;
   sdu_info.time_of_departure   = std::chrono::steady_clock::now();
+  sdu_info.dscp                = sdu.dscp;
 
   // Notify the upper layer about the beginning of the transfer of the current SDU
   if (sdu.pdcp_sn.has_value()) {
@@ -1030,13 +1037,15 @@ rlc_buffer_state rlc_tx_am_entity::get_buffer_state()
       rlc_tx_am_sdu_info& sdu_info = tx_window[sn_under_segmentation];
       segment_bytes                = sdu_info.sdu.length() - sdu_info.next_so + head_max_size;
       bs.hol_toa                   = sdu_info.time_of_arrival;
+      bs.hol_dscp                  = sdu_info.dscp;
     } else {
       logger.log_info("Buffer state ignores SDU under segmentation. sn={} not in tx_window.", sn_under_segmentation);
     }
   } else {
     const rlc_sdu* next_sdu = sdu_queue.front();
     if (next_sdu != nullptr) {
-      bs.hol_toa = next_sdu->time_of_arrival;
+      bs.hol_toa  = next_sdu->time_of_arrival;
+      bs.hol_dscp = next_sdu->dscp;
     }
   }
 
@@ -1051,7 +1060,9 @@ rlc_buffer_state rlc_tx_am_entity::get_buffer_state()
     retx_queue.pop();
   }
   if (!retx_queue.empty()) {
-    bs.hol_toa = tx_window[retx_queue.front().sn].time_of_arrival;
+    const rlc_tx_am_sdu_info& front_sdu = tx_window[retx_queue.front().sn];
+    bs.hol_toa                          = front_sdu.time_of_arrival;
+    bs.hol_dscp                         = front_sdu.dscp;
   }
 
   // status report size
@@ -1291,3 +1302,4 @@ bool rlc_tx_am_entity::valid_nack(uint32_t ack_sn, const rlc_am_status_nack& nac
   }
   return true;
 }
+

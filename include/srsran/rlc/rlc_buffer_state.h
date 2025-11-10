@@ -23,8 +23,10 @@
 #pragma once
 
 #include "fmt/format.h"
+#include "srsran/ran/qos/dscp_qos_mapping.h"
 #include <chrono>
 #include <optional>
+#include <string>
 
 namespace srsran {
 
@@ -37,6 +39,8 @@ struct rlc_buffer_state {
   unsigned pending_bytes = 0;
   /// Head of line (HOL) time of arrival (TOA) holds the TOA of the oldest SDU or ReTx that is queued for transmission.
   std::optional<std::chrono::time_point<std::chrono::steady_clock>> hol_toa;
+  /// Head of line DSCP marking associated with the queued SDU, if available.
+  std::optional<dscp_value_t> hol_dscp;
 };
 } // namespace srsran
 
@@ -54,13 +58,16 @@ struct formatter<srsran::rlc_buffer_state> {
   template <typename FormatContext>
   auto format(const srsran::rlc_buffer_state& bs, FormatContext& ctx) const
   {
-    if (bs.hol_toa) {
-      return format_to(ctx.out(),
-                       "pending_bytes={} hol_toa={}",
-                       bs.pending_bytes,
-                       std::chrono::duration_cast<std::chrono::microseconds>(bs.hol_toa->time_since_epoch()));
-    }
-    return format_to(ctx.out(), "pending_bytes={} hol_toa=none", bs.pending_bytes);
+    const auto toa_str = [&]() -> std::string {
+      if (bs.hol_toa) {
+        return fmt::format("{}", std::chrono::duration_cast<std::chrono::microseconds>(bs.hol_toa->time_since_epoch()));
+      }
+      return "none";
+    }();
+    const auto dscp_str = bs.hol_dscp.has_value() ? fmt::format("{}", bs.hol_dscp->to_uint()) : std::string("none");
+    return format_to(
+        ctx.out(), "pending_bytes={} hol_toa={} hol_dscp={}", bs.pending_bytes, toa_str, dscp_str);
   }
 };
 } // namespace fmt
+

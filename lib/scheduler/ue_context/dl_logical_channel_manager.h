@@ -28,8 +28,11 @@
 #include "srsran/adt/ring_buffer.h"
 #include "srsran/mac/mac_pdu_format.h"
 #include "srsran/ran/logical_channel/lcid_dl_sch.h"
+#include "srsran/ran/qos/dscp_qos_mapping.h"
 #include "srsran/scheduler/result/pdsch_info.h"
 #include "srsran/support/math/moving_averager.h"
+#include <cstdint>
+#include <optional>
 #include <queue>
 #include <variant>
 
@@ -154,14 +157,23 @@ public:
 
   slot_point hol_toa(lcid_t lcid) const { return is_active(lcid) ? channels[lcid].hol_toa : slot_point{}; }
 
+  std::optional<dscp_value_t> hol_dscp(lcid_t lcid) const
+  {
+    return is_active(lcid) ? channels[lcid].hol_dscp : std::nullopt;
+  }
+  
   /// \brief Update DL buffer status for a given LCID.
-  void handle_dl_buffer_status_indication(lcid_t lcid, unsigned buffer_status, slot_point hol_toa = {})
+  void handle_dl_buffer_status_indication(lcid_t                    lcid,
+                                          unsigned                  buffer_status,
+                                          slot_point                hol_toa     = {},
+                                          std::optional<dscp_value_t> hol_dscp = std::nullopt)
   {
     // We apply this limit to avoid potential overflows.
     static constexpr unsigned max_buffer_status = 1U << 24U;
     srsran_sanity_check(lcid < MAX_NOF_RB_LCIDS, "Max LCID value 32 exceeded");
     channels[lcid].buf_st  = std::min(buffer_status, max_buffer_status);
     channels[lcid].hol_toa = hol_toa;
+    channels[lcid].hol_dscp = hol_dscp;
   }
 
   /// \brief Enqueue new MAC CE to be scheduled.
@@ -199,6 +211,8 @@ private:
     unsigned last_sched_bytes = 0;
     /// Head-of-line (HOL) time-of-arrival
     slot_point hol_toa;
+    /// Head-of-line DSCP marking, if available.
+    std::optional<dscp_value_t> hol_dscp;
     /// Slice associated with this channel.
     std::optional<ran_slice_id_t> slice_id;
 
@@ -235,6 +249,8 @@ private:
 
   // List of pending CEs except UE Contention Resolution Identity.
   ring_buffer<mac_ce_info> pending_ces;
+
+  uint64_t compute_priority_metric(lcid_t lcid) const;
 };
 
 /// \brief Allocate MAC SDUs and corresponding MAC subPDU subheaders.
@@ -283,3 +299,4 @@ unsigned build_dl_transport_block_info(dl_msg_tb_info&             tb_info,
                                        ran_slice_id_t              slice_id);
 
 } // namespace srsran
+

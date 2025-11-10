@@ -30,7 +30,9 @@
 #include "srsran/f1u/cu_up/f1u_rx_sdu_notifier.h"
 #include "srsran/f1u/cu_up/f1u_tx_pdu_notifier.h"
 #include "srsran/ran/rb_id.h"
+#include "srsran/ran/qos/dscp_qos_mapping.h"
 #include "srsran/support/timers.h"
+#include <optional>
 
 namespace srsran::srs_cu_up {
 
@@ -66,7 +68,7 @@ public:
   }
 
   void handle_pdu(nru_ul_message msg) override;
-  void handle_sdu(byte_buffer sdu, bool is_retx) override;
+  void handle_sdu(byte_buffer sdu, bool is_retx, std::optional<dscp_value_t> dscp) override;  
   void discard_sdu(uint32_t pdcp_sn) override;
 
   /// \brief Returns the UL tunnel info that was assigned upon construction.

@@ -42,7 +42,7 @@ public:
   void on_new_sdu(byte_buffer sdu) override
   {
     srsran_assert(sdap_handler != nullptr, "SDAP handler must not be nullptr");
-    sdap_handler->handle_pdu(std::move(sdu));
+    sdap_handler->handle_pdu(std::move(sdu), std::nullopt);  
   }
 
 private:
@@ -96,12 +96,12 @@ public:
   void connect_f1u(f1u_tx_sdu_handler& f1u_handler_) { f1u_handler = &f1u_handler_; }
   void disconnect_f1u() { f1u_handler = nullptr; }
 
-  void on_new_pdu(byte_buffer pdu, bool is_retx) override
+  void on_new_pdu(byte_buffer pdu, bool is_retx, std::optional<dscp_value_t> dscp) override  
   {
     if (f1u_handler == nullptr) {
       srslog::fetch_basic_logger("PDCP").info("Dropped DL PDU. F1-U handler is not connected");
     } else {
-      f1u_handler->handle_sdu(std::move(pdu), is_retx);
+      f1u_handler->handle_sdu(std::move(pdu), is_retx, dscp);  
     }
   }
 

@@ -142,10 +142,14 @@ manual_event_flag& pdcp_entity_tx::crypto_awaitable()
 ///
 /// \param sdu Buffer that hold the SDU from higher layers.
 /// \ref TS 38.323 section 5.2.1: Transmit operation
-void pdcp_entity_tx::handle_sdu(byte_buffer buf)
+void pdcp_entity_tx::handle_sdu(byte_buffer buf, std::optional<dscp_value_t> dscp)
 {
   metrics.add_sdus(1, buf.length());
-  logger.log_debug(buf.begin(), buf.end(), "TX SDU. sdu_len={}", buf.length());
+  if (dscp.has_value()) {
+    logger.log_debug(buf.begin(), buf.end(), "TX SDU. sdu_len={} dscp={}", buf.length(), dscp->to_uint());
+  } else {
+    logger.log_debug(buf.begin(), buf.end(), "TX SDU. sdu_len={} dscp=none", buf.length());
+  }
 
   if (SRSRAN_UNLIKELY(stopped)) {
     if (not cfg.custom.warn_on_drop) {
@@ -210,6 +214,7 @@ void pdcp_entity_tx::handle_sdu(byte_buffer buf)
   pdcp_tx_window_sdu_info sdu_info = {
       .sdu                   = {}, // we will store a copy of the SDU here later if required.
       .count                 = st.tx_next,
+      .dscp                  = dscp,
       .time_of_arrival       = time_of_arrival,
       .tick_point_of_arrival = {} // set later only for finite discard timer
   };
@@ -266,6 +271,7 @@ void pdcp_entity_tx::handle_sdu(byte_buffer buf)
                                .retx_id = retransmit_id,
                                .count   = st.tx_next,
                                .buf     = std::move(buf),
+                               .dscp    = dscp,
                                .token   = pdcp_crypto_token(token_mngr)};
 
   // Increment TX_NEXT. We do this before passing the SDU+Header
@@ -327,8 +333,10 @@ void pdcp_entity_tx::apply_reordering(pdcp_tx_buffer_info buf_info)
 
   // Deliver in order PDUs. Break and update TX_TRANS_CRYPTO when we find a missing PDU.
   for (uint32_t count = st.tx_trans_crypto; count < st.tx_next && not tx_window[count].pdu.empty(); count++) {
-    pdcp_tx_pdu_info pdu_info{
-        .pdu = std::move(tx_window[count].pdu), .count = count, .sdu_toa = tx_window[count].sdu_info.time_of_arrival};
+    pdcp_tx_pdu_info pdu_info{.pdu     = std::move(tx_window[count].pdu),
+                              .count   = count,
+                              .sdu_toa = tx_window[count].sdu_info.time_of_arrival,
+                              .dscp    = tx_window[count].sdu_info.dscp};
     write_data_pdu_to_lower_layers(std::move(pdu_info), buf_info.is_retx);
     st.tx_trans_crypto = count + 1;
     // Automatically trigger delivery notifications when using test mode
@@ -415,7 +423,7 @@ void pdcp_entity_tx::write_data_pdu_to_lower_layers(pdcp_tx_pdu_info&& pdu_info,
   auto sdu_latency_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() -
                                                                              pdu_info.sdu_toa);
   metrics.add_pdu_latency_ns(sdu_latency_ns.count());
-  lower_dn.on_new_pdu(std::move(pdu_info.pdu), is_retx);
+  lower_dn.on_new_pdu(std::move(pdu_info.pdu), is_retx, pdu_info.dscp);  
 }
 
 void pdcp_entity_tx::write_control_pdu_to_lower_layers(byte_buffer buf)
@@ -530,6 +538,7 @@ void pdcp_entity_tx::apply_security(pdcp_tx_buffer_info buf_info)
                                .retx_id = buf_info.retx_id,
                                .count   = tx_count,
                                .buf     = std::move(result.buf.value()),
+                               .dscp    = buf_info.dscp,
                                .token   = std::move(buf_info.token)};
 
   auto post           = std::chrono::high_resolution_clock::now();
@@ -757,6 +766,7 @@ void pdcp_entity_tx::retransmit_all_pdus()
                                    .retx_id = retransmit_id,
                                    .count   = count,
                                    .buf     = std::move(buf),
+                                   .dscp    = window_elem.sdu_info.dscp,
                                    .token   = pdcp_crypto_token(token_mngr)};
 
       auto fn = [this, buf_info = std::move(buf_info)]() mutable { apply_security(std::move(buf_info)); };
@@ -1166,7 +1176,8 @@ void pdcp_entity_tx::crypto_reordering_timeout()
     if (tx_window.has_sn(st.tx_trans_crypto) && not tx_window[st.tx_trans_crypto].pdu.empty()) {
       pdcp_tx_pdu_info pdu_info{.pdu     = std::move(tx_window[st.tx_trans_crypto].pdu),
                                 .count   = st.tx_trans_crypto,
-                                .sdu_toa = tx_window[st.tx_trans_crypto].sdu_info.time_of_arrival};
+                                .sdu_toa = tx_window[st.tx_trans_crypto].sdu_info.time_of_arrival,
+                                .dscp    = tx_window[st.tx_trans_crypto].sdu_info.dscp};
       write_data_pdu_to_lower_layers(std::move(pdu_info), false);
     } else {
       logger.log_debug("Dropping SDU. count={}", st.tx_trans_crypto);
@@ -1177,8 +1188,10 @@ void pdcp_entity_tx::crypto_reordering_timeout()
 
   // Deliver in order PDUs. Break and update TX_TRANS_CRYPTO when we find a missing PDU.
   for (uint32_t count = st.tx_trans_crypto; count < st.tx_next && not tx_window[count].pdu.empty(); count++) {
-    pdcp_tx_pdu_info pdu_info{
-        .pdu = std::move(tx_window[count].pdu), .count = count, .sdu_toa = tx_window[count].sdu_info.time_of_arrival};
+    pdcp_tx_pdu_info pdu_info{.pdu     = std::move(tx_window[count].pdu),
+                              .count   = count,
+                              .sdu_toa = tx_window[count].sdu_info.time_of_arrival,
+                              .dscp    = tx_window[count].sdu_info.dscp};
     write_data_pdu_to_lower_layers(std::move(pdu_info), false);
     st.tx_trans_crypto = count + 1;
     // Automatically trigger delivery notifications when using test mode
@@ -1210,3 +1223,4 @@ pdcp_entity_tx::early_drop_reason pdcp_entity_tx::check_early_drop(const byte_bu
   }
   return early_drop_reason::no_drop;
 }
+

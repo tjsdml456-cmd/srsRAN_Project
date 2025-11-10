@@ -23,6 +23,7 @@
 #include "lib/scheduler/config/logical_channel_config_pool.h"
 #include "lib/scheduler/ue_context/dl_logical_channel_manager.h"
 #include "lib/scheduler/ue_context/ul_logical_channel_manager.h"
+#include "srsran/ran/qos/dscp_qos_mapping.h"
 #include "srsran/support/test_utils.h"
 #include <gtest/gtest.h>
 
@@ -239,6 +240,23 @@ TEST_F(dl_logical_channel_tester, mac_sdu_is_scheduled_if_tb_has_space)
 
     rem_bytes -= allocated_bytes;
   } while (lch_mng.has_pending_bytes());
+}
+
+TEST_F(dl_logical_channel_tester, higher_dscp_values_are_prioritized_among_equal_priority_bearers)
+{
+  std::vector<lcid_t> lcids{LCID_MIN_DRB, static_cast<lcid_t>(LCID_MIN_DRB + 1)};
+  dl_logical_channel_manager lch_mng{subcarrier_spacing::kHz15, false, create_lcid_config(lcids)};
+
+  // Give both logical channels pending data, but mark one with a higher DSCP value.
+  lch_mng.handle_dl_buffer_status_indication(lcids[0], 256, slot_point{}, dscp_classes::default_forwarding);
+  lch_mng.handle_dl_buffer_status_indication(lcids[1], 256, slot_point{}, dscp_classes::ef);
+
+  dl_msg_lc_info subpdu{};
+  unsigned       allocated_bytes = lch_mng.allocate_mac_sdu(subpdu, 512, INVALID_LCID);
+
+  ASSERT_GT(allocated_bytes, 0U);
+  ASSERT_TRUE(subpdu.lcid.is_sdu());
+  EXPECT_EQ(subpdu.lcid.to_lcid(), lcids[1]);
 }
 
 TEST_F(dl_logical_channel_tester, check_scheduling_of_ue_con_res_id_mac_ce)

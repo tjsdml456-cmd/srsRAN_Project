@@ -23,6 +23,8 @@
 #pragma once
 
 #include "srsran/adt/byte_buffer.h"
+#include "srsran/ran/qos/dscp_qos_mapping.h"
+#include <optional>
 
 namespace srsran {
 namespace srs_cu_up {
@@ -38,7 +40,7 @@ public:
   /// \brief Immediately transmits a PDCP TX PDU to lower layers towards the DU.
   /// \param sdu The PDCP TX PDU to be transmitted to lower layers.
   /// \param is_retx Determines whether the SDU is a PDCP retransmission or not.
-  virtual void handle_sdu(byte_buffer sdu, bool is_retx) = 0;
+  virtual void handle_sdu(byte_buffer sdu, bool is_retx, std::optional<dscp_value_t> dscp = std::nullopt) = 0;  
 
   /// \brief Enqueues a notification to discard the given PDCP TX PDU at the DU.
   ///

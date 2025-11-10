@@ -24,6 +24,8 @@
 
 #include "srsran/adt/byte_buffer.h"
 #include "srsran/ran/cu_types.h"
+#include "srsran/ran/qos/dscp_qos_mapping.h"
+#include <optional>
 
 struct sockaddr_storage;
 
@@ -65,7 +67,9 @@ public:
   /// \brief Interface for the GTP-U to pass a SDU (i.e. NG-U PDU) into the lower layer.
   /// \param sdu SDU to be passed down.
   /// \param qfi QoS flow ID that is associated with the SDU.
-  virtual void on_new_sdu(byte_buffer sdu, qos_flow_id_t qfi) = 0;
+  /// \param dscp Optional DSCP marking extracted from the encapsulated IP packet.
+  virtual void
+  on_new_sdu(byte_buffer sdu, qos_flow_id_t qfi, std::optional<dscp_value_t> dscp) = 0;
 };
 
 } // namespace srsran

@@ -23,8 +23,10 @@
 #include "lib/f1u/du/f1u_bearer_impl.h"
 #include "srsran/srslog/srslog.h"
 #include "srsran/support/executors/manual_task_worker.h"
+#include "srsran/ran/qos/dscp_qos_mapping.h"
 #include <gtest/gtest.h>
 #include <list>
+#include <optional>
 
 using namespace srsran;
 using namespace srs_du;
@@ -40,7 +42,10 @@ public:
   std::list<nru_ul_message>               tx_msg_list;
 
   // f1u_rx_sdu_notifier interface
-  void on_new_sdu(byte_buffer sdu, bool is_retx) override { rx_sdu_list.push_back({std::move(sdu), is_retx}); }
+  void on_new_sdu(byte_buffer sdu, bool is_retx, std::optional<dscp_value_t>) override
+  {
+    rx_sdu_list.push_back({std::move(sdu), is_retx});
+  }
   void on_discard_sdu(uint32_t pdcp_sn) override { rx_discard_sdu_list.push_back(pdcp_sn); }
 
   // f1u_tx_pdu_notifier interface
@@ -770,3 +775,4 @@ TEST_F(f1u_du_buffer_test, buffer_ul_pdus_timeout)
   ASSERT_EQ(t_pdu2[0], pdcp_sn + 1);
   tester->tx_msg_list.pop_front();
 }
+

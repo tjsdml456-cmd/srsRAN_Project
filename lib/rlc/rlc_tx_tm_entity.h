@@ -75,7 +75,7 @@ public:
   }
 
   // Interfaces for higher layers
-  void handle_sdu(byte_buffer sdu_buf, bool is_retx) override;
+  void handle_sdu(byte_buffer sdu_buf, bool is_retx, std::optional<dscp_value_t> dscp) override;  
   void discard_sdu(uint32_t pdcp_sn) override;
 
   // Interfaces for lower layers

@@ -26,6 +26,7 @@
 #include "srsran/support/test_utils.h"
 #include <gtest/gtest.h>
 #include <queue>
+#include <optional>
 
 using namespace srsran;
 
@@ -46,7 +47,7 @@ TEST_P(pdcp_tx_reestablish_test, when_srb_reestablish_then_pdus_dropped)
   int n_pdus = 5;
   for (int i = 0; i < n_pdus; i++) {
     byte_buffer sdu = byte_buffer::create(sdu1).value();
-    pdcp_tx->handle_sdu(std::move(sdu));
+    pdcp_tx->handle_sdu(std::move(sdu), std::nullopt);
   }
   wait_pending_crypto();
   worker.run_pending_tasks();
@@ -74,7 +75,7 @@ TEST_P(pdcp_tx_reestablish_test, when_drb_um_reestablish_then_pdus_and_discard_t
   int n_pdus = 5;
   for (int i = 0; i < n_pdus; i++) {
     byte_buffer sdu = byte_buffer::create(sdu1).value();
-    pdcp_tx->handle_sdu(std::move(sdu));
+    pdcp_tx->handle_sdu(std::move(sdu), std::nullopt);
   }
   wait_pending_crypto();
   worker.run_pending_tasks();
@@ -101,7 +102,7 @@ TEST_P(pdcp_tx_reestablish_test, when_drb_am_reestablish_then_pdus_retx)
   int n_pdus = 5;
   for (int i = 0; i < n_pdus; i++) {
     byte_buffer sdu = byte_buffer::create(sdu1).value();
-    pdcp_tx->handle_sdu(std::move(sdu));
+    pdcp_tx->handle_sdu(std::move(sdu), std::nullopt);
   }
   wait_pending_crypto();
   worker.run_pending_tasks();
@@ -174,3 +175,4 @@ int main(int argc, char** argv)
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
+
