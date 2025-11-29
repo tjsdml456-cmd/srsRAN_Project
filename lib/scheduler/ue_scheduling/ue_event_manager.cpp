@@ -28,6 +28,8 @@
 #include "../uci_scheduling/uci_scheduler_impl.h"
 #include "srsran/support/memory_pool/bounded_object_pool.h"
 #include <memory>
+#include <chrono>
+#include <fmt/format.h>
 
 using namespace srsran;
 
@@ -992,6 +994,34 @@ void ue_cell_event_manager::handle_harq_ind(ue_cell&                            
       // Log Event.
       ev_logger.enqueue(scheduler_event_logger::harq_ack_event{
           ue_cc.ue_index, ue_cc.rnti(), ue_cc.cell_index, uci_sl, result->h_dl.id(), harq_bits[harq_idx], tbs});
+      
+      // Log T_ack: HARQ ACK reception time
+      auto now = std::chrono::steady_clock::now();
+      auto time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+      const char* ack_status_str = (harq_bits[harq_idx] == mac_harq_ack_report_status::ack) ? "ACK" :
+                                   (harq_bits[harq_idx] == mac_harq_ack_report_status::nack) ? "NACK" : "DTX";
+      
+      // Get PDSCH slot from HARQ process (if available)
+      slot_point pdsch_slot = result->h_dl.pdsch_slot();
+      if (pdsch_slot.valid()) {
+        // Calculate air interface delay: (T_ack - T_tx) - Transmission_delay
+        // Note: Transmission_delay needs to be obtained from T_tx log, so we only calculate the slot difference here
+        int64_t air_interface_delay_slots = static_cast<int64_t>(uci_sl.count()) - static_cast<int64_t>(pdsch_slot.count());
+        const subcarrier_spacing scs = ue_cc.cfg().cell_cfg_common.scs_common;
+        // slot_duration_ms: 15kHz=1ms, 30kHz=0.5ms, 60kHz=0.25ms, 120kHz=0.125ms
+        double slot_duration_ms = 1.0 / (1U << static_cast<unsigned>(scs)); // Already in ms        
+	double air_interface_delay_ms = air_interface_delay_slots * slot_duration_ms;
+        
+        logger.info("[RAN_DELAY] T_ack: ue={} rnti={} harq_id={} uci_slot={} slot_index={} slot_count={} pdsch_slot={} pdsch_slot_count={} air_interface_delay_slots={} air_interface_delay_ms={:.3f} ack_status={} tbs={} time_ms={}",
+                    fmt::underlying(ue_cc.ue_index), ue_cc.rnti(), fmt::underlying(result->h_dl.id()), 
+                    uci_sl, uci_sl.slot_index(), uci_sl.count(),
+                    pdsch_slot, pdsch_slot.count(), air_interface_delay_slots, air_interface_delay_ms,
+                    ack_status_str, tbs.value(), time_ms);
+      } else {
+        logger.info("[RAN_DELAY] T_ack: ue={} rnti={} harq_id={} uci_slot={} slot_index={} slot_count={} pdsch_slot=invalid air_interface_delay=invalid ack_status={} tbs={} time_ms={}",
+                    fmt::underlying(ue_cc.ue_index), ue_cc.rnti(), fmt::underlying(result->h_dl.id()), 
+                    uci_sl, uci_sl.slot_index(), uci_sl.count(), ack_status_str, tbs.value(), time_ms);
+      }
 
       // NOTE: this is for the first attachment only. In this case, the first ACK is the one that acks the ConRes or the
       // ConRes + MSG4; there is only 1 HARQ process waiting for ACKs, which acks the ConRes. Until this is acked, no
@@ -1091,3 +1121,4 @@ bool ue_event_manager::cell_exists(du_cell_index_t cell_index) const
 {
   return cell_index < MAX_NOF_DU_CELLS and cells[cell_index] != nullptr;
 }
+

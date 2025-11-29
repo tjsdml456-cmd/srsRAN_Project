@@ -26,6 +26,8 @@
 #include "grant_params_selector.h"
 #include "srsran/scheduler/result/dci_info.h"
 #include "srsran/support/error_handling.h"
+#include <chrono>
+#include <fmt/format.h>
 
 using namespace srsran;
 
@@ -391,6 +393,60 @@ void ue_cell_grid_allocator::set_pdsch_params(dl_grant_info&                    
 
     // Update context with buffer occupancy after the TB is built.
     msg.context.buffer_occupancy = u.dl_logical_channels().pending_bytes();
+    
+    // Find the oldest HOL TOA and DSCP from all active LCIDs with pending bytes (not just TB-included ones)
+    // This gives us the true queueing delay for the UE
+    slot_point oldest_hol_toa;
+    std::optional<dscp_value_t> oldest_hol_dscp;
+    bool       has_hol_toa = false;
+    // Iterate through all possible LCIDs to find the oldest HOL TOA
+    for (unsigned lcid_val = static_cast<unsigned>(LCID_SRB0); lcid_val <= static_cast<unsigned>(LCID_MAX_DRB); ++lcid_val) {
+      lcid_t lcid = static_cast<lcid_t>(lcid_val);
+      if (u.dl_logical_channels().is_active(lcid) and u.dl_logical_channels().has_pending_bytes(lcid)) {
+        slot_point lcid_hol_toa = u.dl_logical_channels().hol_toa(lcid);
+        if (lcid_hol_toa.valid()) {
+          if (not has_hol_toa or lcid_hol_toa < oldest_hol_toa) {
+            oldest_hol_toa = lcid_hol_toa;
+            oldest_hol_dscp = u.dl_logical_channels().hol_dscp(lcid);
+            has_hol_toa    = true;
+          }
+        }
+      }
+    }
+    
+    // Log T_sched: Scheduler decision time (when TB is allocated)
+    auto now = std::chrono::steady_clock::now();
+    auto time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+    // slot_duration_ms: 15kHz=1ms, 30kHz=0.5ms, 60kHz=0.25ms, 120kHz=0.125ms
+    double slot_duration_ms = 1.0 / (1U << static_cast<unsigned>(scs)); // Already in ms    
+    if (has_hol_toa) {
+      // Calculate queueing delay: T_sched - T_in (in slots, then convert to ms)
+      int64_t queueing_delay_slots = static_cast<int64_t>(pdsch_alloc.slot.count()) - static_cast<int64_t>(oldest_hol_toa.count());
+      double queueing_delay_ms = queueing_delay_slots * slot_duration_ms;
+      int dscp_value = oldest_hol_dscp.has_value() ? static_cast<int>(oldest_hol_dscp->to_uint()) : -1;
+      bool dscp_used = oldest_hol_dscp.has_value();
+      const char* scheduling_mode = dscp_used ? "DSCP" : "5QI_ONLY";
+      logger.info("[RAN_DELAY] T_sched: ue={} rnti={} harq_id={} pdsch_slot={} tb_size={} hol_toa_slot={} hol_toa_count={} dscp={} dscp_used={} scheduling_mode={} queueing_delay_slots={} queueing_delay_ms={:.3f} time_ms={}",
+                  fmt::underlying(u.ue_index), u.crnti, fmt::underlying(grant.h_dl.id()), pdsch_alloc.slot, 
+                  msg.pdsch_cfg.codewords[0].tb_size_bytes, oldest_hol_toa.slot_index(), oldest_hol_toa.count(),
+                  dscp_value, dscp_used ? 1 : 0, scheduling_mode, queueing_delay_slots, queueing_delay_ms, time_ms);
+    } else {
+      logger.info("[RAN_DELAY] T_sched: ue={} rnti={} harq_id={} pdsch_slot={} tb_size={} hol_toa=invalid dscp=invalid dscp_used=0 scheduling_mode=UNKNOWN queueing_delay=invalid time_ms={}",
+                  fmt::underlying(u.ue_index), u.crnti, fmt::underlying(grant.h_dl.id()), pdsch_alloc.slot, 
+                  msg.pdsch_cfg.codewords[0].tb_size_bytes, time_ms);
+    }
+    
+    // Log T_tx: PDSCH transmission slot time with symbol information
+    unsigned nof_symbols = pdsch_td_cfg.symbols.length();
+    double   transmission_delay_ms = nof_symbols * slot_duration_ms / 14.0; // 14 symbols per slot
+    int dscp_value = oldest_hol_dscp.has_value() ? static_cast<int>(oldest_hol_dscp->to_uint()) : -1;
+    bool dscp_used = oldest_hol_dscp.has_value();
+    const char* scheduling_mode = dscp_used ? "DSCP" : "5QI_ONLY";
+    logger.info("[RAN_DELAY] T_tx: ue={} rnti={} harq_id={} pdsch_slot={} slot_index={} slot_count={} symbols=[{},{}] nof_symbols={} scs={} dscp={} dscp_used={} scheduling_mode={} transmission_delay_ms={:.3f}",
+                fmt::underlying(u.ue_index), u.crnti, fmt::underlying(grant.h_dl.id()), 
+                pdsch_alloc.slot, pdsch_alloc.slot.slot_index(), pdsch_alloc.slot.count(),
+                pdsch_td_cfg.symbols.start(), pdsch_td_cfg.symbols.stop(), nof_symbols,
+                static_cast<unsigned>(scs), dscp_value, dscp_used ? 1 : 0, scheduling_mode, transmission_delay_ms);
   }
 
   // Save PDSCH parameters in DL HARQ.
@@ -907,3 +963,4 @@ void ue_cell_grid_allocator::ul_newtx_grant_builder::set_pusch_params(const vrb_
   // Set PUSCH parameters and set parent as nullptr to avoid further modifications.
   parent = nullptr;
 }
+

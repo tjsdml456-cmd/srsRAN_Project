@@ -564,7 +564,15 @@ void mac_cell_processor::update_logical_channel_dl_buffer_states(const dl_sched_
         mac_dl_buffer_state_indication_message bs{
             ue_mng.get_ue_index(grant.pdsch_cfg.rnti), lc_info.lcid.to_lcid(), rlc_bs.pending_bytes};
         bs.hol_dscp = rlc_bs.hol_dscp;        
-        logger.debug(
+        // Convert hol_toa from steady_clock to system_clock for MAC message
+        if (rlc_bs.hol_toa.has_value()) {
+          // Convert steady_clock time_point to system_clock time_point
+          auto steady_now = std::chrono::steady_clock::now();
+          auto system_now = std::chrono::system_clock::now();
+          auto elapsed = steady_now - rlc_bs.hol_toa.value();
+          bs.hol_toa = system_now - elapsed;
+        }              
+	logger.debug(
             "MAC DL buffer update: ue_index={} rnti=0x{:04x} lcid={} bytes={} dscp={}",
             bs.ue_index,
             to_value(grant.pdsch_cfg.rnti),

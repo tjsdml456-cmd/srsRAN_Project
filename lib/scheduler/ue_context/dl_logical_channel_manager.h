@@ -31,10 +31,13 @@
 #include "srsran/ran/qos/dscp_qos_mapping.h"
 #include "srsran/scheduler/result/pdsch_info.h"
 #include "srsran/support/math/moving_averager.h"
+#include "srsran/srslog/srslog.h"
 #include <cstdint>
 #include <optional>
 #include <queue>
 #include <variant>
+#include <chrono>
+#include <fmt/format.h>
 
 namespace srsran {
 
@@ -174,7 +177,17 @@ public:
     channels[lcid].buf_st  = std::min(buffer_status, max_buffer_status);
     channels[lcid].hol_toa = hol_toa;
     channels[lcid].hol_dscp = hol_dscp;
+    
+    // Log T_in: Packet arrival time (HOL time-of-arrival)
+    if (hol_toa.valid() and buffer_status > 0) {
+      auto now = std::chrono::steady_clock::now();
+      auto time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+      int dscp_value = hol_dscp.has_value() ? static_cast<int>(hol_dscp->to_uint()) : -1;
+      srslog::fetch_basic_logger("SCHED").info("[RAN_DELAY] T_in: ue_lcid={} hol_toa_slot={} hol_toa_count={} buffer_status={} dscp={} time_ms={}",      
+                 static_cast<unsigned>(lcid), hol_toa.slot_index(), hol_toa.count(), buffer_status, dscp_value, time_ms);    
+    }
   }
+
 
   /// \brief Enqueue new MAC CE to be scheduled.
   /// \return True if the MAC CE was enqueued successfully, false if the queue was full.
