@@ -172,6 +172,20 @@ if (rlc_bs.hol_toa.has_value()) {
 - **계산**: `T_sched - T_in`
 - **의미**: 패킷이 RLC에 도착한 후 스케줄러가 할당하기까지의 대기 시간
 - **단위**: slots, milliseconds
+Queueing Delay = “버퍼에 머문 시간”**
+
+쉽게 말해서,
+
+T_in = 패킷이 RLC 버퍼에 들어온 순간
+
+T_sched = 그 패킷이 MAC에 의해 전송하라고 선택된 순간
+
+그러면,
+
+버퍼에 들어온 이후 → 전송되기 전까지
+얼마나 오래 기다렸는가?
+
+= 이것이 바로 Queueing Delay.
 
 ### 2. 전송 지연 (Transmission Delay)
 - **계산**: PDSCH 심볼 수 기반
@@ -180,11 +194,13 @@ if (rlc_bs.hol_toa.has_value()) {
 - **공식**: `nof_symbols * slot_duration_ms / 14.0`
 
 ### 3. 공중 인터페이스 지연 (Air Interface Delay)
+PDSCH가 전송된 뒤 → UE로 갔다가 → ACK/NACK이 다시 gNB로 돌아올 때까지 걸리는 순수 무선 왕복 시간
 - **계산**: `T_ack - T_tx` (슬롯 단위)
 - **의미**: PDSCH 전송부터 HARQ ACK 수신까지의 시간
 - **단위**: slots, milliseconds
 
 ### 4. 전체 지연 (End-to-End Delay)
+gNB PHY가 실제로 PDSCH 데이터 심볼을 보내는 데 걸리는 시간
 - **계산**: `T_ack - T_in` (전체 경로)
 - **의미**: 패킷 도착부터 ACK 수신까지의 전체 지연
 - **단위**: slots, milliseconds
